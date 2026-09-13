@@ -11,6 +11,17 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Per-site toggles (JavaScript, cookies, blocking) via a site panel
 - HTTPS-first mode with automatic upgrade and downgrade warnings
 
+## [1.3.0] — 2026-09-13
+
+### Added
+- **Tab switcher with live page previews.** Each card now shows a scaled screenshot of the tab's last loaded page (never captured for incognito tabs) with the site host beneath the title. Cards are larger with rounded corners, and the active tab carries an accent outline.
+- **Expanded network blocking.** The curated URL-pattern rule set grew from 26 to ~60 rules: Google ad/measurement endpoints (including the IMA video-ad SDK and the GA4/GTM loaders), social and analytics pixels (Meta, TikTok, X, Pinterest, LinkedIn, Bing/Clarity, Hotjar, Yandex), header-bidding exchanges (PubMatic, Rubicon, Criteo, Index, Sovrn and peers), native/content-ad and popup networks (Taboola, Outbrain, MGID, RevContent, PopAds, PropellerAds, Adsterra and peers). Every rule is a plain substring match, deliberately conservative to avoid breaking page function; the full list is documented in `docs/CONTENT_BLOCKING.md`.
+
+### Changed
+- **Cosmetic filtering is now first-paint and ~12× larger.** The element-hiding list grew from 106 hand-curated selectors to 1,200 sanitized rules: a validated generic-hide subset of EasyList (CC-BY-SA-3.0, attribution and license recorded in the file header and `docs/RESEARCH_SUMMARY.md`) merged with the original curated additions, deduplicated, ad-related rules prioritized, and id/class/attribute kinds mixed. On WebViews that support document-start scripting the cosmetic script now runs at document start on every http(s) origin, so ad containers are hidden *before the page first paints* instead of after; page-finish injection remains as a fallback for older engines. Selectors are applied in comma-joined batches (one engine pass per batch, with per-selector fallback when a batch fails to parse) to keep the larger set cheap on mutation-heavy pages.
+- **Start page redesigned.** Gradient wordmark, search pill with focus ring and submit button, eight quick links with colored monogram tiles, and a stats card carrying the all-time blocked count. The version string is now read from the app's package info instead of a hardcoded constant.
+- **Browser chrome polish.** Taller rounded omnibox with an accent focus ring and scheme-stripped URL display (the padlock already conveys TLS state), hairline toolbar dividers, accent-tinted progress bar, and a rounded tab-count badge on the bottom bar.
+
 ## [1.2.1] — 2026-09-13
 
 ### Changed
