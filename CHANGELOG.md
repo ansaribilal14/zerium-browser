@@ -11,6 +11,11 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Per-site toggles (JavaScript, cookies, blocking) via a site panel
 - HTTPS-first mode with automatic upgrade and downgrade warnings
 
+## [1.3.1] — 2026-09-14
+
+### Fixed
+- **Pull-to-refresh no longer hijacks upward scrolling.** Scrolling back up through a page (finger dragging down) triggered the refresh spinner instead of moving the page, anywhere above the gesture's start point. Root cause: `SwipeRefreshLayout.canChildScrollUp()` only asks its *direct* child — the plain `FrameLayout` tab container, which can never scroll — so the layout believed every page was at the top and armed the refresh gesture on any downward drag. The new `BrowserSwipeLayout` forwards the check to the actually visible WebView, so the refresh gesture arms only when the page genuinely sits at its top; scrolled pages scroll normally. The check runs per gesture (never cached), so tab switches, scroll restoration and back/forward navigation are always reflected without any wiring. The gesture is additionally disabled on the start page, where reloading the generated local page is meaningless (this also removes the pointless spinner flash when pulling down there).
+
 ## [1.3.0] — 2026-09-13
 
 ### Added
