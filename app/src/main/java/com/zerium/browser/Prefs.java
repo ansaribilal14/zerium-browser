@@ -17,6 +17,8 @@ public class Prefs {
     public void blockAds(boolean v) { sp.edit().putBoolean("block_ads", v).apply(); }
     public boolean blockCosmetic() { return sp.getBoolean("block_cosmetic", true); }
     public void blockCosmetic(boolean v) { sp.edit().putBoolean("block_cosmetic", v).apply(); }
+    public boolean youtubeSuppress() { return sp.getBoolean("youtube_suppress", true); }
+    public void youtubeSuppress(boolean v) { sp.edit().putBoolean("youtube_suppress", v).apply(); }
 
     // Privacy
     public boolean cookiesEnabled() { return sp.getBoolean("cookies", true); }

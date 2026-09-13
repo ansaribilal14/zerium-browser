@@ -26,7 +26,10 @@ public class HistoryActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list);
-        setTitle(R.string.menu_history);
+        com.google.android.material.appbar.MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setTitle(R.string.menu_history);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(v -> finish());
         db = new HistoryDB(this);
 
         ListView list = findViewById(R.id.list);

@@ -83,6 +83,8 @@
     <string name="block_master_sub">Network-level blocking with the built-in hosts list</string>
     <string name="cosmetic">Hide leftover ad elements</string>
     <string name="cosmetic_sub">Element hiding for empty ad boxes and banners</string>
+    <string name="youtube_suppress">YouTube ad suppression</string>
+    <string name="youtube_suppress_sub">Player API pruning, auto-skip and overlay hiding on youtube.com</string>
     <string name="update_lists">Update filter lists</string>
     <string name="lists_never">Never</string>
     <string name="lists_updating">Updating…</string>

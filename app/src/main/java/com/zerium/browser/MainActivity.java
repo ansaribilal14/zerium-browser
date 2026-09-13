@@ -42,6 +42,8 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.webkit.WebSettingsCompat;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
 
 import java.io.ByteArrayInputStream;
 import java.util.Collections;
@@ -317,6 +319,17 @@ public class MainActivity extends AppCompatActivity {
             WebView.setWebContentsDebuggingEnabled(true);
         }
 
+        // Inject the YouTube suppression script at document start so it runs
+        // before the player initializes and consumes ad placements.
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                java.util.Set<String> origins = new java.util.HashSet<>(java.util.Arrays.asList(
+                        "https://*.youtube.com", "https://*.youtube-nocookie.com",
+                        "https://music.youtube.com"));
+                WebViewCompat.addDocumentStartJavaScript(w, YouTubeFilter.script(), origins);
+            }
+        } catch (Exception ignored) {}
+
         w.setWebViewClient(new ZeriumWebViewClient(tab));
         w.setWebChromeClient(new ZeriumChromeClient(tab));
         w.setDownloadListener(this::startDownload);
@@ -392,6 +405,7 @@ public class MainActivity extends AppCompatActivity {
             long blocked = tab.blockedOnPage;
             if (blocked > 0) prefs.addTotalBlocked(blocked);
             injectCosmetic(tab);
+            injectYouTube(tab);
             if (tabs.currentTab() == tab) {
                 updateChrome(tab);
                 swipe.setRefreshing(false);
@@ -573,6 +587,14 @@ public class MainActivity extends AppCompatActivity {
         if (script != null) {
             tab.webView.evaluateJavascript(script, null);
         }
+    }
+
+    /** Fallback injection for WebView versions without document-start scripting. */
+    private void injectYouTube(Tab tab) {
+        if (!prefs.blockAds() || !prefs.youtubeSuppress()) return;
+        if (isStartPage(tab)) return;
+        if (!YouTubeFilter.matches(Utils.hostOf(tab.url))) return;
+        tab.webView.evaluateJavascript(YouTubeFilter.script(), null);
     }
 
     private void navigateOmnibox() {

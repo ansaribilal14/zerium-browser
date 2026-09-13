@@ -35,7 +35,10 @@ public class DownloadsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list);
-        setTitle(R.string.menu_downloads);
+        com.google.android.material.appbar.MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setTitle(R.string.menu_downloads);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(v -> finish());
         dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
 
         ListView list = findViewById(R.id.list);

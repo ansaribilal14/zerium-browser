@@ -34,7 +34,10 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
-        setTitle(R.string.menu_settings);
+        com.google.android.material.appbar.MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setTitle(R.string.menu_settings);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(v -> finish());
         prefs = new Prefs(this);
 
         // Search engine
@@ -52,6 +55,12 @@ public class SettingsActivity extends AppCompatActivity {
             boolean val = !prefs.blockCosmetic();
             prefs.blockCosmetic(val);
             CosmeticFilter.invalidate();
+            ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
+        });
+
+        bindSwitch(R.id.swYT, prefs.youtubeSuppress(), (View.OnClickListener) v -> {
+            boolean val = !prefs.youtubeSuppress();
+            prefs.youtubeSuppress(val);
             ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
         });
 

@@ -19,12 +19,22 @@ Blocked requests receive an empty HTTP 404 response. Requests are counted per pa
 | `hosts_updated.txt` (user-fetched) | Same, current | MIT | Fetched over HTTPS from the upstream repo, integrity-gated (size + sentinel) |
 | `cosmetic.txt` (bundled) | Generic ad slot selectors | GPL-3.0 (part of Zerium) | Curated in-repo |
 
+## YouTube strategy (client-side suppression, documented honestly)
+
+YouTube serves in-stream ads from the same delivery endpoints as the video itself (`googlevideo.com/videoplayback`), so no network-layer blocker can separate them by host or path. This is why the strategy used by scriptlet-based web blockers (uBlock Origin, AdGuard, Brave's web filtering) is client-side, and Zerium implements the same three layers, injected at document start (before the YouTube player initializes) via `WebViewCompat.addDocumentStartJavaScript`:
+
+1. **Player-API pruning.** `adPlacements`, `adSlots`, `playerAds`, and `adBreaks` are deleted from player JSON before the player consumes it: a setter trap on `window.ytInitialPlayerResponse`, plus `fetch` and `XMLHttpRequest` hooks that prune `/youtubei/` API responses. This prevents most ad slots from ever being scheduled.
+2. **Auto-skip watchdog.** A 250 ms watchdog detects the ad UI (`.ytp-ad-player-overlay`, `.ad-showing`), mutes the ad, raises playback rate to finish it, auto-clicks skip buttons and overlay-close buttons, and restores normal playback when the ad UI disappears.
+3. **CSS hiding.** Ad overlay and countdown containers are hidden with `!important` rules.
+
+Scope, stated plainly: this is an arms race against a well-funded opponent. The pruning layer is the most durable; UI-level selectors break when YouTube renames classes. Expect most sessions to be ad-free or near-ad-free, with occasional formats slipping through. A settings toggle (`YouTube ad suppression`, on by default) controls all of it. The engine-level endgame (in-request ad separation) belongs to the Chromium/GeckoView track in `docs/ROADMAP.md`.
+
 ## Site allowlist
 
 Settings allows per-domain exemptions (one domain per line). The allowlist is checked before blocking; allowlisted hosts are never blocked at the network layer. Editing it takes effect immediately for new requests.
 
 ## What blocking cannot do (v1, stated honestly)
 
-- In-stream video ads (YouTube and similar) are served from the same delivery endpoints as the media itself; network-level blocking cannot remove them without breaking playback. Zerium blocks their telemetry endpoints and hides page-level ad containers.
+- In-stream video ads are handled client-side (see the YouTube strategy above): effective most of the time, not guaranteed always; network-layer removal alone is impossible without breaking playback.
 - No filter DSL (EasyList syntax, `##` cosmetic rules with domains, scriptlets). The selector set is generic and curated.
 - Fail-open while the list is still loading (a fraction of a second at first launch): a page loaded in that window may fetch some ads. This is intentional; availability beats purity, and it is not hidden.

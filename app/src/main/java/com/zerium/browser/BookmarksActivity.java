@@ -26,7 +26,10 @@ public class BookmarksActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list);
-        setTitle(R.string.menu_bookmarks);
+        com.google.android.material.appbar.MaterialToolbar toolbar = findViewById(R.id.toolbar);
+        toolbar.setTitle(R.string.menu_bookmarks);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(v -> finish());
         db = new BookmarksDB(this);
 
         ListView list = findViewById(R.id.list);

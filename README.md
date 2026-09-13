@@ -18,6 +18,7 @@ The project follows three hard rules. First, honesty over marketing: every capab
 
 - **Network-level blocking**: ads, trackers, and malware domains are filtered in `shouldInterceptRequest` using the bundled StevenBlack unified hosts list (~140k domains, MIT licensed) plus a curated URL-pattern rule set. Every blocked request is counted per page, per session, and all-time.
 - **Cosmetic filtering**: leftover ad boxes and banners are hidden by a curated element-hiding list injected into every page, with a debounced MutationObserver for dynamically inserted ads.
+- **YouTube ad suppression**: the same client-side technique scriptlet-based blockers use on the web - player-API responses are pruned of `adPlacements`/`adSlots`/`playerAds` before the player sees them (document-start script, fetch + XHR hooks, setter trap on `ytInitialPlayerResponse`), unskippable ad segments are muted and fast-forwarded, skip and overlay-close buttons are auto-clicked, and ad containers are CSS-hidden. See `docs/CONTENT_BLOCKING.md` for the honest scope of this approach.
 - **Live transparency**: menu shows blocked counts; the padlock icon and connection dialog explain HTTPS status; a site allowlist exempts chosen domains.
 - **Tabs**: multi-tab browsing with a grid switcher, incognito tabs that skip history and bookmarks, and session restore across restarts (up to 10 tabs).
 - **Privacy controls**: third-party cookie blocking (on by default), optional global cookie/JavaScript switches, Do Not Track + Global Privacy Control headers, optional algorithmic darkening, one-tap data clearing (history, cookies, site storage).
@@ -29,7 +30,7 @@ The project follows three hard rules. First, honesty over marketing: every capab
 Zerium v1.0.0 uses the **Android System WebView** engine. That is a deliberate, documented tradeoff (see `docs/ARCHITECTURE.md`): it lets a small team ship a small, fast, fully CI-buildable browser instead of maintaining a 100 GB Chromium fork. It also brings real constraints, stated plainly:
 
 1. **No extension support.** WebView has no WebExtensions API.
-2. **In-stream video ads (including YouTube's) are not removable** at the network level, because they are served from the same endpoints as the video itself. Zerium still blocks YouTube's ad-telemetry endpoints and cosmetic-hides page ads, but claiming otherwise would be dishonest.
+2. **In-stream video ads (including YouTube's) cannot be removed at the network level**, because they are served from the same endpoints as the video itself. Zerium therefore suppresses them client-side (player-API pruning + auto-skip + overlay hiding), which removes or shortens most of them; it remains an arms race and some formats can still slip through as YouTube changes.
 3. **DNT/GPC headers apply to main-frame requests**; WebView does not expose per-subresource header injection.
 4. **Incognito shares the WebView cookie jar** with normal tabs; history and bookmarks are skipped, and true cookie isolation is planned via the WebView Profiles API.
 5. Blocking is domain/path based; it is not a full filter-list DSL (no EasyList syntax) in v1.
