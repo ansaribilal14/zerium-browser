@@ -59,11 +59,10 @@ jobs:
       - name: Organize artifacts
         run: |
           VER=$(grep -oP 'versionName "\K[^"]+' app/build.gradle)
-          SHA=$(git rev-parse --short HEAD)
-          echo "Building version ${VER} (${SHA})"
+          echo "Building version ${VER}"
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk "out/Zerium-v${VER}-r${SHA}-release.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk     "out/Zerium-v${VER}-r${SHA}-debug.apk"
+          cp app/build/outputs/apk/release/app-release.apk "out/Zerium-v${VER}-release.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk     "out/Zerium-v${VER}-debug.apk"
           ls -la out/
 
       - name: Upload build artifacts

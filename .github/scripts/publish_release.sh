@@ -19,7 +19,6 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 VER=$(grep -oP 'versionName "\K[^"]+' app/build.gradle)
-SHORT_SHA=$(git rev-parse --short HEAD)
 FULL_SHA=$(git rev-parse HEAD)
 BUILD_NO=${GITHUB_RUN_NUMBER:-dev}
 STAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
@@ -46,7 +45,7 @@ if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "v${VER}" ]; then
 else
   LOG_RANGE=(--max-count=15)
 fi
-CHANGES=$(git log --no-merges --pretty=format:"- %s (\`%h\`)" "${LOG_RANGE[@]}")
+CHANGES=$(git log --no-merges --pretty=format:"- %s" "${LOG_RANGE[@]}")
 if [ -z "$CHANGES" ]; then
   CHANGES="- No user-facing changes in this window; see the full commit history."
 fi
@@ -64,14 +63,14 @@ gen_notes() { # $1 = channel: rolling|stable, $2 = output file
   fi
 
   cat <<'TEMPLATE' | awk \
-      -v ver="$VER"         -v sha="$SHORT_SHA"  -v repo="$REPO_URL" \
+      -v ver="$VER"         -v repo="$REPO_URL" \
       -v stamp="$STAMP"     -v build="$BUILD_NO" -v blurb="$blurb" \
       -v changes="$CHANGES" -v sums="$CHECKSUMS" '
     { gsub(/\{BLURB\}/, blurb); gsub(/\{CHANGES\}/, changes); gsub(/\{CHECKSUMS\}/, sums) }
-    { gsub(/\{VER\}/, ver); gsub(/\{SHORT_SHA\}/, sha); gsub(/\{REPO_URL\}/, repo) }
+    { gsub(/\{VER\}/, ver); gsub(/\{REPO_URL\}/, repo) }
     { gsub(/\{STAMP\}/, stamp); gsub(/\{BUILD_NO\}/, build); print }
   ' > "$file"
-**Zerium Browser v{VER}** — {SHORT_SHA} · build #{BUILD_NO} · {STAMP}
+**Zerium Browser v{VER}** — build #{BUILD_NO} · {STAMP}
 
 {BLURB}
 
@@ -83,15 +82,15 @@ gen_notes() { # $1 = channel: rolling|stable, $2 = output file
 
 | File | Description |
 |------|-------------|
-| `Zerium-v{VER}-r{SHORT_SHA}-release.apk` | Signed release build — recommended for daily use |
-| `Zerium-v{VER}-r{SHORT_SHA}-debug.apk` | Debug build — for development and testing |
+| `Zerium-v{VER}-release.apk` | Signed release build — recommended for daily use |
+| `Zerium-v{VER}-debug.apk` | Debug build — for development and testing |
 | `SHA256SUMS.txt` | SHA-256 checksums for both APKs |
 
 **Requirements:** Android 8.0+ (API 26) · universal APK (arm64-v8a, armeabi-v7a, x86, x86_64) · ~5 MB · no account or telemetry of any kind.
 
 ## Install
 
-1. Download `Zerium-v{VER}-r{SHORT_SHA}-release.apk` from the assets below.
+1. Download `Zerium-v{VER}-release.apk` from the assets below.
 2. Open the file and allow installs from your browser or file manager when prompted.
 3. Optional — verify integrity before installing: `sha256sum -c SHA256SUMS.txt`
 
@@ -139,8 +138,8 @@ if ! git ls-remote --tags origin "refs/tags/v${VER}" | grep -q "refs/tags/v${VER
   git tag -a "v${VER}" -m "Zerium Browser v${VER}" "$FULL_SHA"
   git push origin "v${VER}"
   gh release create "v${VER}" \
-    "out/Zerium-v${VER}-r${SHORT_SHA}-release.apk" \
-    "out/Zerium-v${VER}-r${SHORT_SHA}-debug.apk" \
+    "out/Zerium-v${VER}-release.apk" \
+    "out/Zerium-v${VER}-debug.apk" \
     "out/SHA256SUMS.txt" \
     --title "Zerium Browser v${VER}" \
     --notes-file out/RELEASE-NOTES-STABLE.md
@@ -152,11 +151,11 @@ fi
 # --- Rolling channel: recreate `latest` -------------------------------------
 gh release delete latest --yes --cleanup-tag 2>/dev/null || true
 gh release create latest \
-  "out/Zerium-v${VER}-r${SHORT_SHA}-release.apk" \
-  "out/Zerium-v${VER}-r${SHORT_SHA}-debug.apk" \
+  "out/Zerium-v${VER}-release.apk" \
+  "out/Zerium-v${VER}-debug.apk" \
   "out/SHA256SUMS.txt" \
   --target "$FULL_SHA" \
   --title "Zerium Browser v${VER} — Rolling Release" \
   --notes-file out/RELEASE-NOTES-ROLLING.md \
   --latest=false
-echo "Published rolling release 'latest' (v${VER}, ${SHORT_SHA})."
+echo "Published rolling release 'latest' (v${VER})."
