@@ -322,11 +322,12 @@ public class MainActivity extends AppCompatActivity {
         // Inject the YouTube suppression script at document start so it runs
         // before the player initializes and consumes ad placements.
         try {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            String ytScript = YouTubeFilter.script();
+            if (!ytScript.isEmpty() && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 java.util.Set<String> origins = new java.util.HashSet<>(java.util.Arrays.asList(
                         "https://*.youtube.com", "https://*.youtube-nocookie.com",
                         "https://music.youtube.com"));
-                WebViewCompat.addDocumentStartJavaScript(w, YouTubeFilter.script(), origins);
+                WebViewCompat.addDocumentStartJavaScript(w, ytScript, origins);
             }
         } catch (Exception ignored) {}
 
@@ -594,7 +595,8 @@ public class MainActivity extends AppCompatActivity {
         if (!prefs.blockAds() || !prefs.youtubeSuppress()) return;
         if (isStartPage(tab)) return;
         if (!YouTubeFilter.matches(Utils.hostOf(tab.url))) return;
-        tab.webView.evaluateJavascript(YouTubeFilter.script(), null);
+        String script = YouTubeFilter.script();
+        if (!script.isEmpty()) tab.webView.evaluateJavascript(script, null);
     }
 
     private void navigateOmnibox() {

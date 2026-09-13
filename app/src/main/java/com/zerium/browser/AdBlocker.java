@@ -26,7 +26,8 @@ public class AdBlocker {
     private static final String[] URL_PATTERNS = {
             "/pagead/", "/adsbygoogle", "googlesyndication.com", "google-analytics.com",
             "analytics.google.com", "doubleclick.net", "adservice.google.", "ad.click",
-            "/api/stats/ads", "get_midroll_info", "/ptracking?", "/adserver/",
+            "/api/stats/", "get_midroll_info", "/ptracking?", "/adserver/",
+            "play.google.com/log",
             "pubmatic.com", "rubiconproject.com", "openx.net", "criteo.", "outbrain.com",
             "taboola.com", "scorecardresearch.com", "quantserve.com", "moatads.com",
             "amazon-adsystem.com", "adnxs.com", "adcolony", "applovin.com", "unityads"
