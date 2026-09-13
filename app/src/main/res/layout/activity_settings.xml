@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsCard"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout style="@style/SettingsSection">
+                <TextView style="@style/SectionTitle" android:text="@string/settings_general" />
+                <LinearLayout android:id="@+id/rowEngine" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/search_engine" />
+                    <TextView android:id="@+id/valueEngine" style="@style/RowValue" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/rowTheme" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/app_theme" />
+                    <TextView android:id="@+id/valueTheme" style="@style/RowValue" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsCard"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout style="@style/SettingsSection">
+                <TextView style="@style/SectionTitle" android:text="@string/settings_blocking" />
+                <LinearLayout style="@style/SettingsRow">
+                    <LinearLayout style="@style/RowTextCol">
+                        <TextView style="@style/RowTitle" android:text="@string/block_master" />
+                        <TextView style="@style/RowSub" android:text="@string/block_master_sub" />
+                    </LinearLayout>
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swBlockAds"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+                <LinearLayout style="@style/SettingsRow">
+                    <LinearLayout style="@style/RowTextCol">
+                        <TextView style="@style/RowTitle" android:text="@string/cosmetic" />
+                        <TextView style="@style/RowSub" android:text="@string/cosmetic_sub" />
+                    </LinearLayout>
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swCosmetic"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/rowUpdateLists" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/update_lists" />
+                    <TextView android:id="@+id/valueLists" style="@style/RowValue" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/rowAllowlist" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/allowlist" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsCard"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout style="@style/SettingsSection">
+                <TextView style="@style/SectionTitle" android:text="@string/settings_privacy" />
+                <LinearLayout style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/cookies" />
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swCookies"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+                <LinearLayout style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/cookies_3p" />
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swCookies3p"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+                <LinearLayout style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/javascript" />
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swJs"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+                <LinearLayout style="@style/SettingsRow">
+                    <LinearLayout style="@style/RowTextCol">
+                        <TextView style="@style/RowTitle" android:text="@string/privacy_headers" />
+                        <TextView style="@style/RowSub" android:text="@string/privacy_headers_sub" />
+                    </LinearLayout>
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swHeaders"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+                <LinearLayout style="@style/SettingsRow">
+                    <LinearLayout style="@style/RowTextCol">
+                        <TextView style="@style/RowTitle" android:text="@string/force_dark" />
+                        <TextView style="@style/RowSub" android:text="@string/force_dark_sub" />
+                    </LinearLayout>
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/swForceDark"
+                        style="@style/RowSwitch" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsCard"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout style="@style/SettingsSection">
+                <TextView style="@style/SectionTitle" android:text="@string/settings_data" />
+                <LinearLayout android:id="@+id/rowClearHistory" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/clear_history" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/rowClearCookies" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/clear_cookies" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/rowClearCache" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/clear_storage" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/SettingsCard"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout style="@style/SettingsSection">
+                <TextView style="@style/SectionTitle" android:text="@string/settings_about" />
+                <LinearLayout android:id="@+id/rowAbout" style="@style/SettingsRow">
+                    <TextView style="@style/RowTitle" android:text="@string/about" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+</ScrollView>

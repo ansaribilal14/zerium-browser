@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zerium</string>
+
+    <!-- Browser chrome -->
+    <string name="start_page">Zerium Start</string>
+    <string name="search_hint">Search or type a URL</string>
+    <string name="refresh">Refresh</string>
+    <string name="menu">Menu</string>
+    <string name="back">Back</string>
+    <string name="forward">Forward</string>
+    <string name="home">Home</string>
+    <string name="tabs">Tabs</string>
+    <string name="close">Close</string>
+    <string name="close_all">Close all tabs</string>
+    <string name="incognito">Incognito</string>
+    <string name="security_title">Connection security</string>
+
+    <!-- Menu -->
+    <string name="menu_new_tab">New tab</string>
+    <string name="menu_new_incognito">New incognito tab</string>
+    <string name="menu_add_bookmark">Add bookmark</string>
+    <string name="menu_remove_bookmark">Remove bookmark</string>
+    <string name="menu_bookmarks">Bookmarks</string>
+    <string name="menu_history">History</string>
+    <string name="menu_downloads">Downloads</string>
+    <string name="menu_find">Find in page</string>
+    <string name="menu_share">Share</string>
+    <string name="menu_block_info">Blocked on this page</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_exit">Exit</string>
+
+    <!-- Feedback -->
+    <string name="bookmark_added">Bookmark added</string>
+    <string name="bookmark_removed">Bookmark removed</string>
+    <string name="bookmark_exists">Bookmark already exists, removing it</string>
+    <string name="download_started">Download started</string>
+    <string name="download_failed">Download failed: %1$s</string>
+    <string name="download_not_ready">Download not finished yet</string>
+    <string name="download_open_failed">Could not open this download</string>
+    <string name="download_done">Completed</string>
+    <string name="download_status_failed">Failed</string>
+    <string name="download_paused">Paused</string>
+    <string name="download_running">In progress</string>
+    <string name="empty_default">Nothing here yet</string>
+
+    <!-- Dialogs -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="done">Done</string>
+    <string name="proceed">Proceed</string>
+    <string name="allow">Allow</string>
+    <string name="deny">Deny</string>
+    <string name="ssl_error">Security warning</string>
+    <string name="ssl_error_message">This site certificate is not valid (%1$s). Your connection could be intercepted. Proceed anyway?</string>
+    <string name="location_permission">Location access</string>
+    <string name="location_permission_message">The site %1$s wants to know your location.</string>
+    <string name="security_secure">Encrypted connection (HTTPS)</string>
+    <string name="security_insecure">Not encrypted (HTTP): anything you send can be read on the network</string>
+    <string name="security_body">%1$s\n\nAds and trackers blocked on this page: %2$d</string>
+    <string name="block_info_title">Content blocking</string>
+    <string name="block_info_body">Blocked on this page: %1$d\nBlocked this session: %2$d\nBlocked all time: %3$d\n\nNetwork blocking uses the StevenBlack unified hosts list (MIT). In-stream video ads cannot be removed at the network level.</string>
+    <string name="find_in_page">Find in page</string>
+    <string name="find_next">Next</string>
+    <string name="find_close">Close</string>
+
+    <!-- Settings -->
+    <string name="settings_general">General</string>
+    <string name="settings_blocking">Content blocking</string>
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_data">Data</string>
+    <string name="settings_about">About</string>
+    <string name="search_engine">Search engine</string>
+    <string name="app_theme">App theme</string>
+    <string-array name="themes">
+        <item>System</item>
+        <item>Light</item>
+        <item>Dark</item>
+    </string-array>
+    <string name="block_master">Block ads and trackers</string>
+    <string name="block_master_sub">Network-level blocking with the built-in hosts list</string>
+    <string name="cosmetic">Hide leftover ad elements</string>
+    <string name="cosmetic_sub">Element hiding for empty ad boxes and banners</string>
+    <string name="update_lists">Update filter lists</string>
+    <string name="lists_never">Never</string>
+    <string name="lists_updating">Updating…</string>
+    <string name="lists_updated">Filter lists updated. Restart Zerium to apply.</string>
+    <string name="lists_failed">Update failed. Check your connection.</string>
+    <string name="allowlist">Site allowlist</string>
+    <string name="allowlist_title">Site allowlist</string>
+    <string name="allowlist_message">One domain per line. Sites on this list are exempt from network blocking.</string>
+    <string name="allowlist_hint">example.com\ncdn.example.org</string>
+    <string name="cookies">Accept cookies</string>
+    <string name="cookies_3p">Block third-party cookies</string>
+    <string name="javascript">JavaScript</string>
+    <string name="privacy_headers">Send DNT and Global Privacy Control</string>
+    <string name="privacy_headers_sub">Added to main-frame requests; sites may ignore both signals</string>
+    <string name="force_dark">Force dark on web pages</string>
+    <string name="force_dark_sub">Algorithmic darkening for sites without a dark theme</string>
+    <string name="clear_history">Clear browsing history</string>
+    <string name="clear_history_title">Clear all browsing history?</string>
+    <string name="clear_cookies">Clear cookies</string>
+    <string name="clear_cookies_title">Delete all cookies?</string>
+    <string name="clear_storage">Clear site storage</string>
+    <string name="clear_cache_title">Delete all site storage (localStorage and databases)?</string>
+    <string name="about">About Zerium</string>
+    <string name="about_body">Zerium Browser v%1$s\n\nA free and open-source privacy browser for Android, licensed under GPL-3.0. No accounts, no analytics, no ads of its own.\n\nEngine: Android System WebView\nBlocking: StevenBlack hosts (MIT) + curated element-hiding rules\n\nThis is an honest early release: some engine-level limitations apply and are documented in the repository README.</string>
+</resources>

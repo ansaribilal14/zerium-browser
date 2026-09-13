@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#4355B9</color>
+    <color name="accent_night">#B6C4FF</color>
+    <color name="border">#E2E2EA</color>
+    <color name="border_night">#2A2D38</color>
+    <color name="ic_launcher_bg">#0B0F1A</color>
+    <color name="ic_launcher_accent">#7C9CFF</color>
+</resources>
