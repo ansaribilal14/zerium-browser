@@ -7,9 +7,17 @@ Stable builds are published as immutable releases on version tags (see [Releases
 ## [Unreleased]
 
 ### Planned
-- GeckoView engine evaluation track (WebExtensions support, per-profile cookie isolation)
+- GeckoView engine track (v2.0): full migration assessment delivered in `docs/GECKOVIEW_MIGRATION.md`; next step is the Phase-0 spike branch. WebExtensions support, engine-level blocking, per-profile cookie isolation.
 - Per-site toggles (JavaScript, cookies, blocking) via a site panel
 - HTTPS-first mode with automatic upgrade and downgrade warnings
+
+## [1.2.1] — 2026-09-13
+
+### Changed
+- **Commit SHAs removed from published artifacts.** APK filenames are now `Zerium-v<version>-release.apk` / `Zerium-v<version>-debug.apk`, and auto-generated release notes no longer embed commit hashes (the "What's changed" list shows plain commit subjects). `SHA256SUMS.txt` is unaffected — those are content-integrity checksums of the APK files, not commit identifiers. Historical stable releases keep their original asset names (immutable by design); the rolling `latest` channel picks up the new naming from this build onward.
+
+### Added
+- **GeckoView migration assessment** (`docs/GECKOVIEW_MIGRATION.md`): the complete answer to "can we move to GeckoView without a Chromium fork" — what ports untouched (~70% of the codebase), what must be rewritten with an API-by-API WebView→GeckoSession mapping, what gets better (engine-level blocking via `webRequest`/`filterResponseData` and ETP, anti-fingerprinting, extension support), what it costs (APK size, memory, Mozilla train tracking), and a phased ~2–3-week plan targeting a v2.0.0 release.
 
 ## [1.2.0] — 2026-09-13
 
