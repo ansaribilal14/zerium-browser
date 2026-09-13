@@ -17,9 +17,10 @@ Condensed findings from the pre-build research phase of this project (full explo
 | Zerium code | GPL-3.0 | Base license |
 | Android SDK / androidx / Material | Apache-2.0 / BSD / MIT mix | Compatible |
 | StevenBlack hosts | MIT | Compatible (attribution kept) |
+| EasyList (sanitized generic-hide subset, `blocklists/cosmetic.txt`) | CC-BY-SA-3.0 | Compatible with attribution + share-alike on the list file itself (attribution and license are carried in the file header) |
 | Android System WebView | System component (not redistributed) | N/A - invoked, not shipped |
 
-Deliberately excluded: EasyList-family lists (licensing terms unclear for bundling in this context in v1; the curated selector set is first-party GPL code), any BAT/crypto/ads code, any analytics SDK.
+Deliberately excluded: any BAT/crypto/ads code, any analytics SDK. EasyList-family lists were excluded in v1.0/v1.1 (the curated selector set was first-party GPL code); from v1.3.0 a sanitized, validated subset of EasyList's generic element-hiding rules is bundled with attribution under CC-BY-SA-3.0, whose terms (attribution + share-alike applying to the list file) are satisfied in the file header and this matrix.
 
 ## Decision log
 

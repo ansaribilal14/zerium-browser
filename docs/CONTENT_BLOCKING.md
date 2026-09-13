@@ -5,19 +5,19 @@
 **Layer 1 - Network filtering.** Every resource request passes through `AdBlocker.shouldBlock`. A request is blocked when:
 
 1. Its host matches an entry in the hosts-derived domain set, either exactly or via an ancestor domain (an entry for `example.com` blocks its whole tree; requests to unlisted subdomains of listed domains are therefore also blocked - this is intentionally stronger than hosts-file semantics), or
-2. Its URL contains one of the curated pattern rules (e.g. `googlesyndication.com`, `/pagead/`, `doubleclick.net`, `/api/stats/ads`).
+2. Its URL contains one of the ~60 curated pattern rules. They cover Google's ad/measurement endpoints (`googlesyndication.com`, `/pagead/`, `doubleclick.net`, `imasdk.googleapis.com`, GA4/GTM loaders), social and analytics pixels (Meta, TikTok, X, Pinterest, LinkedIn, Bing/Clarity, Hotjar, Yandex), header-bidding exchanges (PubMatic, Rubicon, Criteo, Index, Sovrn and peers), native/content-ad and popup networks (Taboola, Outbrain, MGID, RevContent, PopAds, PropellerAds, Adsterra and peers), and YouTube internals (`/api/stats/`, `get_midroll_info`, `/ptracking?`).
 
 Blocked requests receive an empty HTTP 404 response. Requests are counted per page, per session, and all-time; counts are visible in the menu ("Blocked on this page") and in the connection dialog.
 
-**Layer 2 - Cosmetic filtering.** After page load, `CosmeticFilter` injects a script containing sanitized CSS selectors. Matching nodes get `display:none !important` and a `data-zerium-hidden` marker. A MutationObserver re-applies hiding on DOM mutations, debounced through requestAnimationFrame. Selectors are validated against a whitelist regex before injection: only letters, digits, and attribute/class syntax pass; quotes, braces, backslashes, and semicolons are rejected, so a malicious list file cannot inject arbitrary JavaScript.
+**Layer 2 - Cosmetic filtering.** `CosmeticFilter` injects a script containing sanitized CSS selectors. On WebViews that support document-start scripting the script is injected via `WebViewCompat.addDocumentStartJavaScript` on every http(s) origin, so ad containers are hidden *before the first paint*; the page-finish injection remains as a fallback for older WebView versions. Matching nodes get `display:none !important` and a `data-zerium-hidden` marker. A MutationObserver re-applies hiding on DOM mutations, debounced through requestAnimationFrame. For performance with the large selector set, selectors are queried in comma-joined batches (one engine pass per batch instead of one pass per selector); if a batch fails to parse as a whole (e.g. a `:has()` on an old engine), it is retried selector by selector. Selectors are validated against a whitelist regex before injection: only letters, digits, and attribute/class syntax pass; quotes, braces, backslashes, and semicolons are rejected, so a malicious list file cannot inject arbitrary JavaScript.
 
 ## Lists
 
 | List | Scope | License | Source |
 |---|---|---|---|
-| `hosts.txt` (bundled) | Ads, trackers, malware domains (~140k) | MIT | StevenBlack/hosts unified, frozen at build |
+| `hosts.txt` (bundled) | Ads, trackers, malware domains (~80k entries) | MIT | StevenBlack/hosts unified, frozen at build |
 | `hosts_updated.txt` (user-fetched) | Same, current | MIT | Fetched over HTTPS from the upstream repo, integrity-gated (size + sentinel) |
-| `cosmetic.txt` (bundled) | Generic ad slot selectors | GPL-3.0 (part of Zerium) | Curated in-repo |
+| `cosmetic.txt` (bundled) | 1,200 sanitized generic element-hiding selectors (id/class/attribute mix, ad-related rules prioritized) | CC-BY-SA-3.0 (EasyList subset) + GPL-3.0 curated additions | EasyList generic-hide rules, sanitized and capped; attribution + license in the file header |
 
 ## YouTube strategy (client-side suppression, documented honestly)
 
@@ -42,5 +42,5 @@ Settings allows per-domain exemptions (one domain per line). The allowlist is ch
 ## What blocking cannot do (v1, stated honestly)
 
 - In-stream video ads are handled client-side (see the YouTube strategy above): effective most of the time, not guaranteed always; network-layer removal alone is impossible without breaking playback.
-- No filter DSL (EasyList syntax, `##` cosmetic rules with domains, scriptlets). The selector set is generic and curated.
+- No filter DSL (EasyList syntax with domain-scoped rules, scriptlets, procedural filters). The cosmetic set is generic element-hiding only: rules are validated against the runtime whitelist regex and cannot carry per-domain conditions or code.
 - Fail-open while the list is still loading (a fraction of a second at first launch): a page loaded in that window may fetch some ads. This is intentional; availability beats purity, and it is not hidden.

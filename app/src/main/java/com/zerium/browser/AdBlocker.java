@@ -23,14 +23,42 @@ public class AdBlocker {
     private static final String UPDATE_FILE = "hosts_updated.txt";
     private static final String ASSET_FILE = "blocklists/hosts.txt";
 
+    /**
+     * URL-pattern rules layered on top of the hosts list. Hosts entries block
+     * by domain; these catch ad/tracker endpoints that share domains with
+     * content or are path-based. Patterns are plain substring matches on the
+     * request URL — deliberately conservative to avoid breaking page function
+     * (availability over purity), so no generic short tokens like "/ad".
+     */
     private static final String[] URL_PATTERNS = {
-            "/pagead/", "/adsbygoogle", "googlesyndication.com", "google-analytics.com",
-            "analytics.google.com", "doubleclick.net", "adservice.google.", "ad.click",
-            "/api/stats/", "get_midroll_info", "/ptracking?", "/adserver/",
-            "play.google.com/log",
-            "pubmatic.com", "rubiconproject.com", "openx.net", "criteo.", "outbrain.com",
-            "taboola.com", "scorecardresearch.com", "quantserve.com", "moatads.com",
-            "amazon-adsystem.com", "adnxs.com", "adcolony", "applovin.com", "unityads"
+            // --- Google ads / measurement ---
+            "/pagead/", "/pagead2/", "/adsbygoogle", "googlesyndication.com",
+            "google-analytics.com", "analytics.google.com", "doubleclick.net",
+            "adservice.google.", "googleadservices.com", "googletagservices.com",
+            "imasdk.googleapis.com",                       // Google IMA video-ad SDK
+            "googletagmanager.com/gtag/js",                // GA4 loader
+            "googletagmanager.com/gtm.js",                 // GTM container (consent-pixel carrier)
+            "google.com/adsense", "/api/stats/", "play.google.com/log",
+            // --- Social & analytics pixels ---
+            "connect.facebook.net", "facebook.com/tr?", "analytics.tiktok.com",
+            "ads-twitter.com", "ct.pinterest.com", "snap.licdn.com", "px.ads.linkedin.com",
+            "bat.bing.com", "clarity.ms", "hotjar.com", "hotjar.io", "fullstory.com",
+            "mouseflow.com", "cdn.segment.com", "api.amplitude.com", "cdn.mxpnl.com",
+            "heapanalytics.com", "mc.yandex.ru", "an.yandex.ru", "quantserve.com",
+            "scorecardresearch.com", "moatads.com", "moatpixel", "adsafeprotected.com",
+            // --- Header bidding / exchange endpoints ---
+            "pubmatic.com", "rubiconproject.com", "openx.net", "criteo.", "adnxs.com",
+            "smartadserver.com", "media.net", "sharethrough.com", "33across.com",
+            "teads.tv", "sovrn.com", "casalemedia.com", "indexww.com", "bidswitch.net",
+            "adform.net", "improvedigital.com", "districtm.io", "amazon-adsystem.com",
+            // --- Native / content-ad and popup networks ---
+            "taboola.com", "outbrain.com", "mgid.com", "revcontent.com", "zergnet.com",
+            "popads.net", "popcash.net", "propellerads", "adsterra", "adcash",
+            "hilltopads", "clickadu", "exoclick", "juicyads", "trafficjunky",
+            "adcolony", "applovin.com", "unityads",
+            // --- YouTube internals & generic ad paths ---
+            "get_midroll_info", "/ptracking?", "ad.click", "/adserver/",
+            "/ads.js", "/pagead2", "/popunder", "/prebid"
     };
 
     private volatile boolean ready = false;
