@@ -14,10 +14,13 @@ permissions:
 
 jobs:
   build:
+    name: Build, sign and publish
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history — required for tag-aware changelogs
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -55,12 +58,12 @@ jobs:
 
       - name: Organize artifacts
         run: |
-          mkdir -p out
-          SHA=$(git rev-parse --short HEAD)
           VER=$(grep -oP 'versionName "\K[^"]+' app/build.gradle)
+          SHA=$(git rev-parse --short HEAD)
           echo "Building version ${VER} (${SHA})"
-          cp app/build/outputs/apk/release/app-release.apk "out/Zerium-${VER}-r${SHA}-release.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "out/Zerium-${VER}-r${SHA}-debug.apk"
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/Zerium-v${VER}-r${SHA}-release.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk     "out/Zerium-v${VER}-r${SHA}-debug.apk"
           ls -la out/
 
       - name: Upload build artifacts
@@ -71,20 +74,14 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Publish to latest release
+      - name: Publish releases (rolling + stable, checksums, notes)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete latest --yes || true
-          git push origin :refs/tags/latest || true
-          gh release create latest out/*.apk \
-            --target "$GITHUB_SHA" \
-            --title "Zerium Browser - Latest Build" \
-            --notes "Automated build of commit $GITHUB_SHA.
-
-          Install Zerium-*-release.apk. Debug build included for testing.
-
-          This is a rolling release: the tag latest always points at the newest successful build of main."
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          PUBLISH: "1"
+        run: bash .github/scripts/publish_release.sh out
 
       - name: Notify Telegram
         if: always()
@@ -92,21 +89,23 @@ jobs:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          VER=$(grep -oP 'versionName "\K[^"]+' app/build.gradle)
+          SHA=$(git rev-parse --short HEAD)
+          REL="https://github.com/${GITHUB_REPOSITORY}/releases"
+          RUN="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [ -z "$TG_TOKEN" ]; then
             echo "Telegram secrets not set; skipping notification."
             exit 0
           fi
-          STATUS="${{ job.status }}"
-          REL_URL="https://github.com/${{ github.repository }}/releases/tag/latest"
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          if [ "$STATUS" = "success" ]; then
-            EMOJI="OK"
+          if [ "${{ job.status }}" = "success" ]; then
+            HEADLINE="build succeeded"
           else
-            EMOJI="FAILED"
+            HEADLINE="build FAILED — no new artifacts"
           fi
-          MSG="Zerium build #${{ github.run_number }}: ${EMOJI}
-          Commit: ${{ github.sha }}
-          APK: ${REL_URL}
-          Logs: ${RUN_URL}"
+          MSG="Zerium Browser v${VER} — ${HEADLINE}
+          Build #${GITHUB_RUN_NUMBER} · commit ${SHA}
+          Download: ${REL}/tag/latest
+          Releases: ${REL}
+          CI log: ${RUN}"
           curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
             -d chat_id="${TG_CHAT}" --data-urlencode "text=${MSG}" > /dev/null || true
