@@ -11,6 +11,21 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Per-site toggles (JavaScript, cookies, blocking) via a site panel
 - HTTPS-first mode with automatic upgrade and downgrade warnings
 
+## [1.2.0] — 2026-09-13
+
+### Fixed
+- **Main video no longer fast-forwards after an ad.** The v1.1.0 watchdog matched `.ytp-ad-player-overlay` / `.ytp-ad-module`, containers that can persist during normal playback, and reset playback to a hardcoded `1x` — so the main video was muted and fast-forwarded alongside the ad and user speed settings were clobbered. The in-stream fallback now triggers only on a confirmed in-stream ad (`.ad-showing` / `.ad-interrupting` on the player root), captures the user's rate and mute state *before* any change, and restores them exactly when the ad state ends. Overlay ads never touch playback.
+
+### Added
+- **Prune-before-load ("block") layer for YouTube**, mirroring uBlock Origin's maintained YouTube scriptlets (uAssets quick-fixes): `adPlacements`, `adSlots`, `playerAds`, `adBreaks` and related structures are deep-pruned from the initial player response and from `/youtubei/` fetch/XHR responses at any nesting depth, so the player never schedules those ads — most ads do not show up at all, matching Brave's aggressive-mode experience as closely as a WebView allows. The suppression script moved to a readable asset (`app/src/main/assets/yt-block.js`) with unit-tested prune logic.
+- Instant skip: skip/overlay-close buttons are clicked the moment they appear (MutationObserver + rAF), with no artificial delay; the anti-adblock enforcement dialog is auto-dismissed.
+- Expanded cosmetic hiding for YouTube's ad renderer elements (feed, search, masthead, companion, promoted sparkles).
+- Network layer: all `/api/stats/` telemetry beacons and `play.google.com/log` are now blocked.
+
+### Changed
+- `YouTubeFilter` loads its script from assets via a new `ZeriumApp.appContext()` accessor; injection call sites guard against an empty script.
+- `docs/CONTENT_BLOCKING.md` documents the four-layer design, the research basis, and the techniques evaluated and rejected (premium-client masquerade, ad-segment network blocking).
+
 ## [1.1.0] — 2026-09-13
 
 ### Fixed
@@ -33,6 +48,7 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - **Filter list updates** from Settings with basic integrity validation.
 - **CI/CD**: GitHub Actions builds signed release + debug APKs on every push to `main`, publishes them to the rolling `latest` release and sends Telegram notifications.
 
-[unreleased]: https://github.com/ansaribilal14/zerium-browser/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/ansaribilal14/zerium-browser/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/ansaribilal14/zerium-browser/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ansaribilal14/zerium-browser/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ansaribilal14/zerium-browser/releases/tag/v1.0.0
