@@ -11,6 +11,17 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Per-site toggles (JavaScript, cookies, blocking) via a site panel
 - HTTPS-first mode with automatic upgrade and downgrade warnings
 
+## [1.4.0] — 2026-09-14
+
+### Changed
+- **YouTube mid-roll blocking hardened (prune-before-load v2).** Two gaps in the response-pruning layer are closed. Endpoint matching no longer requires a query string — a bare `/youtubei/v1/player` request used to pass through unpruned — and `get_watch`/`ssap` are now covered alongside the existing player endpoints. XHR interception is rewritten to be order-independent: `response`/`responseText` getters are installed at `open()` and prune on access, so YouTube's own listeners (which register before `send()`) can no longer read raw ad data first, as the v1.2.0 listener allowed. Ad pruning additionally operates at the **renderer** level (`adSlotRenderer`, `adBreakAdRenderer`, `adPlacementRenderer`, `inVideoAdCta`), removing ad schedules nested under containers whose names we do not know, and the key lookup no longer resolves through `Object.prototype`. When present, YouTube's web "network machine" experiment flags are switched off client-side (a config toggle mirroring uBO's current quick-fixes; no client identity, user agent, or header is changed). The suppression script ships with a 21-case black-box test suite (`scripts/test_yt_block.js`): endpoint matching, fetch/XHR order-independence, renderer-level pruning, non-ad endpoint pass-through, and content integrity.
+
+### Fixed
+- **Skip-button sweep now covers the modern overlay layout** (`.ytp-ad-player-overlay-layout` skip container plus a class-substring fallback), so client-side mid-rolls that slip through are auto-skipped instead of relying on the fast-forward fallback.
+
+### Honest scope
+- A share of mid-roll ads is now delivered via **SSAP (server-side ad placement)**: the ad segments are stitched into the video stream itself. No client-side blocker can remove those from an already-stitched stream without masquerading as another client and forcing a stream reload (uBO's `serverContract` approach — deliberately rejected here for fragility and client misrepresentation). Client-side *scheduled* mid-rolls are pruned and never appear; SSAP-stitched ads that still reach the player are muted and fast-forwarded through by the confirmed-ad watchdog, exactly as observed in testing. Documented in `docs/CONTENT_BLOCKING.md`.
+
 ## [1.3.1] — 2026-09-14
 
 ### Fixed
