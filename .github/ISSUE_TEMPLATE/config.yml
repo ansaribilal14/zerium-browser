@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/ansaribilal14/zerium-browser/tree/main/docs
+    about: Architecture decisions, blocking scope, privacy policy and build instructions — most questions are answered here.

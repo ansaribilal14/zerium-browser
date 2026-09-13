@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a crash, broken feature, or incorrect blocking behavior
+labels: [ "bug", "triage" ]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to file a bug.
+
+        Before submitting, please check two things:
+        - The [README's "Honest limitations"](../README.md#honest-limitations) section — many reported behaviors are documented engine constraints, not bugs.
+        - [docs/CONTENT_BLOCKING.md](../docs/CONTENT_BLOCKING.md) — if your report is about an ad that still shows, it explains which formats are suppressed client-side and why some slip through.
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Zerium version
+      description: Found in Settings or in the APK filename (e.g. Zerium-v1.1.0-r2325fdf-release.apk).
+      options:
+        - "v1.1.0 (rolling latest)"
+        - v1.0.x
+        - "main at a specific commit"
+        - "Other / not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "e.g. Pixel 7a, Android 14; or emulator API 29 x86_64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps starting from a fresh tab. Include exact URLs where possible.
+      placeholder: |
+        1. Open …
+        2. Tap …
+        3. Observe …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include screenshots or a screen recording if possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Blocked-request counts, site allowlist state, or any investigation you already did.
