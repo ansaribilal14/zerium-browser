@@ -59,6 +59,7 @@ Each release provides a **signed release APK** (recommended) and a **debug APK**
 | Document | Contents |
 |----------|----------|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Engine decision matrix — why v1 ships on System WebView and what GeckoView/Chromium-fork tracks would change |
+| [`docs/GECKOVIEW_MIGRATION.md`](docs/GECKOVIEW_MIGRATION.md) | Full GeckoView migration assessment — what ports untouched, what gets rewritten (API-by-API), costs, and a phased no-Chromium-fork plan |
 | [`docs/CONTENT_BLOCKING.md`](docs/CONTENT_BLOCKING.md) | The three blocking layers, YouTube suppression scope, and why network-level in-stream removal is impossible on WebView |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | What Zerium does and does not collect (short version: nothing) |
 | [`docs/BUILD.md`](docs/BUILD.md) | Toolchain requirements, release signing, CI internals |
@@ -68,7 +69,7 @@ Each release provides a **signed release APK** (recommended) and a **debug APK**
 
 ## Honest limitations
 
-Zerium v1.1.0 uses the **Android System WebView** engine. That is a deliberate, documented tradeoff (see `docs/ARCHITECTURE.md`): it lets a small team ship a small, fast, fully CI-buildable browser instead of maintaining a 100 GB Chromium fork. It also brings real constraints, stated plainly:
+Zerium v1 uses the **Android System WebView** engine. That is a deliberate, documented tradeoff (see `docs/ARCHITECTURE.md`): it lets a small team ship a small, fast, fully CI-buildable browser instead of maintaining a 100 GB Chromium fork. It also brings real constraints, stated plainly (the GeckoView path out of them is assessed in `docs/GECKOVIEW_MIGRATION.md`):
 
 1. **No extension support.** WebView has no WebExtensions API.
 2. **In-stream video ads (including YouTube's) cannot be removed at the network level**, because they are served from the same endpoints as the video itself. Zerium therefore suppresses them client-side (player-API pruning + auto-skip + overlay hiding), which removes or shortens most of them; it remains an arms race and some formats can still slip through as YouTube changes.

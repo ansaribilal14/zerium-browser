@@ -14,7 +14,7 @@ The original project brief targeted a deep Chromium/Cromite fork. That remains t
 | GeckoView embed | Very good | High (WebExtensions, uBlock Origin) | Moderate (large AAR, no source build) | Feasible | Roadmap track 1 |
 | **System WebView (v1)** | Good (Chromium rendering) | Medium (network + cosmetic, no DSL) | Minimal | ~10 min on free runners | **Shipped** |
 
-WebView was chosen for v1 because it is the only option that satisfies three simultaneous constraints: a real Chromium-derived rendering engine for web compatibility, a fully automated cloud build that a single maintainer can keep green, and zero fork-maintenance burden. The known engine limitations (no extensions, no per-subresource headers, shared cookie jar) are documented in the README rather than hidden. The GeckoView track is scoped as a future build flavor, not a rewrite, because the blocking engine, UI, and storage layers are engine-agnostic by design.
+WebView was chosen for v1 because it is the only option that satisfies three simultaneous constraints: a real Chromium-derived rendering engine for web compatibility, a fully automated cloud build that a single maintainer can keep green, and zero fork-maintenance burden. The known engine limitations (no extensions, no per-subresource headers, shared cookie jar) are documented in the README rather than hidden. The GeckoView track is scoped as a future build flavor, not a rewrite, because the blocking engine, UI, and storage layers are engine-agnostic by design. The full migration assessment — API mapping, costs, phased plan — lives in [`docs/GECKOVIEW_MIGRATION.md`](GECKOVIEW_MIGRATION.md).
 
 ## Module map
 
