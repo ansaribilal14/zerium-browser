@@ -1,5 +1,7 @@
 package com.zerium.browser;
 
+import android.webkit.WebView;
+
 import java.util.ArrayList;
 import java.util.List;
 

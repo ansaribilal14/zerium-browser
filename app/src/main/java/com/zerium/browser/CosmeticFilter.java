@@ -1,5 +1,6 @@
 package com.zerium.browser;
 
+import android.content.Context;
 import org.json.JSONArray;
 import java.util.List;
 import java.util.regex.Pattern;
