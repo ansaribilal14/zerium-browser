@@ -647,6 +647,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateChrome(Tab tab) {
         if (tab == null) return;
+        // Refreshing the generated start page is meaningless; also kills the
+        // pointless spinner flash when pulling down on it. Re-armed for real pages.
+        swipe.setEnabled(!isStartPage(tab));
         if (isStartPage(tab)) {
             omnibox.setText("");
             omnibox.setHint(R.string.search_hint);
