@@ -1,9 +1,11 @@
 package com.zerium.browser;
 
+import android.graphics.Bitmap;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -41,8 +43,13 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
     public void onBindViewHolder(@NonNull VH h, int position) {
         final Tab t = tabs.get(position);
         h.title.setText(t.title == null || t.title.isEmpty() ? t.url : t.title);
-        h.url.setText(t.url == null || t.url.isEmpty() ? h.itemView.getContext().getString(R.string.start_page) : t.url);
+        h.url.setText(displayHost(t));
         h.incognito.setVisibility(t.incognito ? View.VISIBLE : View.GONE);
+        if (t.preview != null && !t.preview.isRecycled()) {
+            h.preview.setImageBitmap(t.preview);
+        } else {
+            h.preview.setImageDrawable(null);
+        }
         boolean current = tabs.indexOf(t) == manager.current();
         int stroke = current
                 ? ContextCompat.getColor(h.itemView.getContext(), R.color.accent)
@@ -53,6 +60,15 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
         h.close.setOnClickListener(v -> listener.onClose(t));
     }
 
+    private static String displayHost(Tab t) {
+        String u = t.url == null ? "" : t.url;
+        if (u.isEmpty() || u.equals(MainActivity.HOME_URL) || u.startsWith("data:")) {
+            return t.incognito ? "Incognito" : "Zerium Start";
+        }
+        String host = Utils.hostOf(u);
+        return host == null || host.isEmpty() ? u : host;
+    }
+
     @Override
     public int getItemCount() { return tabs.size(); }
 
@@ -61,6 +77,7 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
         final TextView title;
         final TextView url;
         final TextView incognito;
+        final ImageView preview;
         final ImageButton close;
 
         VH(@NonNull View v) {
@@ -69,6 +86,7 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
             title = v.findViewById(R.id.tabTitle);
             url = v.findViewById(R.id.tabUrl);
             incognito = v.findViewById(R.id.tabIncognito);
+            preview = v.findViewById(R.id.tabPreview);
             close = v.findViewById(R.id.tabClose);
         }
     }

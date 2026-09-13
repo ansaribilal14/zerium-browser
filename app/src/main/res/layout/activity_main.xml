@@ -32,7 +32,9 @@
             <EditText
                 android:id="@+id/omnibox"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_omnibox"
                 android:hint="@string/search_hint"
@@ -71,6 +73,8 @@
             android:layout_width="match_parent"
             android:layout_height="3dp"
             android:max="100"
+            android:progressTint="@color/accent"
+            android:progressBackgroundTint="#00000000"
             android:visibility="gone" />
 
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -85,10 +89,15 @@
                 android:layout_height="match_parent" />
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/border" />
+
         <LinearLayout
             android:id="@+id/bottomBar"
             android:layout_width="match_parent"
-            android:layout_height="54dp"
+            android:layout_height="56dp"
             android:background="?attr/colorSurface"
             android:orientation="horizontal">
 
@@ -122,18 +131,24 @@
                 android:src="@drawable/ic_home"
                 app:tint="?attr/colorOnSurfaceVariant" />
 
-            <TextView
-                android:id="@+id/btnTabs"
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/tabs"
-                android:gravity="center"
-                android:text="1"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="17sp"
-                android:textStyle="bold" />
+                android:layout_weight="1">
+
+                <TextView
+                    android:id="@+id/btnTabs"
+                    android:layout_width="40dp"
+                    android:layout_height="30dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_tab_badge"
+                    android:contentDescription="@string/tabs"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
 
             <ImageButton
                 android:id="@+id/btnMenuBottom"

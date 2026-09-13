@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -53,7 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String HOME_URL = "about:home";
+    static final String HOME_URL = "about:home";
     private static final String DESKTOP_UA =
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     private static final int MAX_RESTORED_TABS = 10;
@@ -331,6 +333,23 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
 
+        // Cosmetic (element-hiding) rules injected at document start when the
+        // WebView supports it: ad containers never paint, instead of being
+        // hidden after first paint. Page-finish injection below stays as the
+        // fallback for older WebView versions.
+        try {
+            if (prefs.blockCosmetic()
+                    && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                String cosmeticScript = CosmeticFilter.getScript(this, true);
+                if (cosmeticScript != null && !cosmeticScript.isEmpty()) {
+                    java.util.Set<String> allOrigins = new java.util.HashSet<>(
+                            java.util.Arrays.asList("http://*/*", "https://*/*"));
+                    WebViewCompat.addDocumentStartJavaScript(w, cosmeticScript, allOrigins);
+                    tab.cosmeticAtStart = true;
+                }
+            }
+        } catch (Exception ignored) {}
+
         w.setWebViewClient(new ZeriumWebViewClient(tab));
         w.setWebChromeClient(new ZeriumChromeClient(tab));
         w.setDownloadListener(this::startDownload);
@@ -410,6 +429,9 @@ public class MainActivity extends AppCompatActivity {
             if (tabs.currentTab() == tab) {
                 updateChrome(tab);
                 swipe.setRefreshing(false);
+            }
+            if (!tab.incognito && !isStartPage(tab)) {
+                view.postDelayed(() -> capturePreview(tab), 350);
             }
             tabsAdapter.notifyDataSetChanged();
         }
@@ -584,6 +606,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void injectCosmetic(Tab tab) {
         if (!prefs.blockCosmetic() || isStartPage(tab)) return;
+        if (tab.cosmeticAtStart) return; // already injected at document start
         String script = CosmeticFilter.getScript(this, true);
         if (script != null) {
             tab.webView.evaluateJavascript(script, null);
@@ -626,10 +649,10 @@ public class MainActivity extends AppCompatActivity {
         if (tab == null) return;
         if (isStartPage(tab)) {
             omnibox.setText("");
-            omnibox.setHint(R.string.start_page);
+            omnibox.setHint(R.string.search_hint);
             btnSecurity.setImageResource(R.drawable.ic_home);
         } else {
-            omnibox.setText(tab.url);
+            omnibox.setText(displayUrl(tab.url));
             omnibox.setHint(R.string.search_hint);
             String scheme = Uri.parse(tab.url).getScheme();
             btnSecurity.setImageResource("https".equals(scheme)
@@ -640,6 +663,12 @@ public class MainActivity extends AppCompatActivity {
         btnBack.setAlpha(tab.webView.canGoBack() ? 1f : 0.4f);
         btnForward.setAlpha(tab.webView.canGoForward() ? 1f : 0.4f);
         btnTabs.setText(String.valueOf(tabs.count()));
+    }
+
+    /** Scheme stripped for display; the security icon already carries TLS state. */
+    private static String displayUrl(String url) {
+        if (url == null) return "";
+        return url.replaceFirst("^https?://", "");
     }
 
     private void showSecurityInfo() {
@@ -787,10 +816,32 @@ public class MainActivity extends AppCompatActivity {
     // ---------- Tab switcher ----------
 
     private void showTabSwitcher() {
+        Tab current = tabs.currentTab();
+        if (current != null && !current.incognito && !isStartPage(current)) capturePreview(current);
         tabsAdapter.notifyDataSetChanged();
         tabSwitcher.setVisibility(View.VISIBLE);
         hideKeyboard();
         omnibox.clearFocus();
+    }
+
+    /** Scaled screenshot for the tab switcher card (kept small to bound memory). */
+    private void capturePreview(Tab tab) {
+        try {
+            WebView w = tab.webView;
+            int vw = w.getWidth(), vh = w.getHeight();
+            if (vw <= 0 || vh <= 0) return;
+            float scale = Math.min(1f, 320f / vw);
+            Bitmap bmp = Bitmap.createBitmap(
+                    Math.max(1, (int) (vw * scale)),
+                    Math.max(1, (int) (vh * scale)),
+                    Bitmap.Config.RGB_565);
+            Canvas canvas = new Canvas(bmp);
+            canvas.drawColor(0xFFFFFFFF);
+            w.draw(canvas);
+            if (tab.preview != null) tab.preview.recycle();
+            tab.preview = bmp;
+            if (tabSwitcher.getVisibility() == View.VISIBLE) tabsAdapter.notifyDataSetChanged();
+        } catch (Exception ignored) {}
     }
 
     private void hideTabSwitcher() {
