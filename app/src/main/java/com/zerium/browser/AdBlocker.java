@@ -62,14 +62,29 @@ public class AdBlocker {
     };
 
     private volatile boolean ready = false;
+    private volatile long loadedAt = 0L;
     private final Set<String> blockedDomains = Collections.synchronizedSet(new HashSet<String>());
     private final Set<String> allowDomains = Collections.synchronizedSet(new HashSet<String>());
 
     public boolean isReady() { return ready; }
 
+    /** When the current blocklist was loaded (ms epoch), for reload comparisons. */
+    public long loadedAt() { return loadedAt; }
+
     /** Loads the blocklist off the main thread. Prefers an updated list downloaded by the user. */
     public void init(Context context, Prefs prefs) {
         Thread t = new Thread(() -> load(context, prefs), "zerium-blocklist-load");
+        t.setPriority(Thread.NORM_PRIORITY - 1);
+        t.start();
+    }
+
+    /**
+     * Re-reads the blocklist from disk (after a filter-list download). Safe to
+     * call repeatedly; the load happens on a background thread and swaps the
+     * domain set atomically, so in-flight requests keep using the old set.
+     */
+    public void reload(Context context, Prefs prefs) {
+        Thread t = new Thread(() -> load(context, prefs), "zerium-blocklist-reload");
         t.setPriority(Thread.NORM_PRIORITY - 1);
         t.start();
     }
@@ -90,6 +105,7 @@ public class AdBlocker {
         }
         rebuildAllowlist(prefs.allowlist());
         ready = count > 0;
+        loadedAt = System.currentTimeMillis();
     }
 
     private int readAssetDomains(Context c, Set<String> out) {

@@ -2,10 +2,41 @@ package com.zerium.browser;
 
 import android.content.Context;
 
-/** Builds the built-in start page shown on new tabs. */
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Builds the built-in start page shown on new tabs.
+ *
+ * The shortcut grid is dynamic: user-defined tiles when configured in
+ * Settings, otherwise an automatic blend of the most-visited sites from
+ * history and the built-in defaults (history entries fill the front slots,
+ * defaults fill the rest, deduplicated by host). Search engines come from
+ * Utils, so custom engines are honoured in the search pill too.
+ */
 public final class StartPage {
 
     private StartPage() {}
+
+    private static final int TILE_COUNT = 8;
+
+    private static final String[][] DEFAULT_TILES = {
+            {"Wikipedia", "https://en.wikipedia.org", "W", "#202122"},
+            {"YouTube", "https://www.youtube.com", "\u25b6", "#ff0000"},
+            {"GitHub", "https://github.com", "G", "#24292f"},
+            {"Reddit", "https://www.reddit.com", "R", "#ff4500"},
+            {"Hacker News", "https://news.ycombinator.com", "Y", "#ff6600"},
+            {"MDN", "https://developer.mozilla.org", "M", "#3b5998"},
+            {"Gmail", "https://mail.google.com", "@", "#ea4335"},
+            {"X", "https://x.com", "X", "#272a30"},
+    };
+
+    private static final String[] TILE_COLORS = {
+            "#4355b9", "#c2185b", "#00796b", "#ef6c00", "#5e35b1",
+            "#2e7d32", "#0288d1", "#6d4c41", "#455a64", "#ad1457"
+    };
 
     private static String versionName(Context c) {
         try {
@@ -15,11 +46,99 @@ public final class StartPage {
         }
     }
 
-    public static String html(Context c, Prefs prefs) {
-        int engine = prefs.searchEngine();
-        String action = Utils.ENGINE_QUERIES[Math.max(0, Math.min(engine, Utils.ENGINE_QUERIES.length - 1))];
+    private static String searchAction(Prefs prefs) {
+        String action = Utils.searchTemplate(prefs, prefs.searchEngine());
         // Replace %s with a token the page JS fills in.
-        action = action.replace("%s", "\u0001ZERIUMQ\u0001");
+        return action.replace("%s", "\u0001ZERIUMQ\u0001");
+    }
+
+    /** Resolved tile: name, url, icon glyph, color. */
+    private static class Tile {
+        final String name, url, icon, color;
+        Tile(String name, String url, String icon, String color) {
+            this.name = name; this.url = url; this.icon = icon; this.color = color;
+        }
+    }
+
+    private static List<Tile> resolveTiles(Context c, Prefs prefs) {
+        List<Utils.Engine> custom = Utils.parseHomeTiles(prefs.homeTiles(), TILE_COUNT);
+        if (!custom.isEmpty()) {
+            List<Tile> out = new ArrayList<>();
+            for (Utils.Engine e : custom) {
+                out.add(new Tile(e.name, e.query, monogram(e.name), colorFor(e.name)));
+            }
+            return out;
+        }
+        return autoTiles(c);
+    }
+
+    /** Most-visited history sites first, defaults fill the remaining slots. */
+    private static List<Tile> autoTiles(Context c) {
+        List<Tile> out = new ArrayList<>();
+        Set<String> usedHosts = new HashSet<>();
+        Set<String> defaultHosts = new HashSet<>();
+        for (String[] d : DEFAULT_TILES) {
+            defaultHosts.add(hostKey(d[1]));
+        }
+        try {
+            HistoryDB history = new HistoryDB(c);
+            List<HistoryDB.Entry> top = history.topSites(TILE_COUNT * 3);
+            history.close();
+            for (HistoryDB.Entry e : top) {
+                if (out.size() >= TILE_COUNT) break;
+                String url = e.url;
+                if (url == null || url.startsWith("data:") || url.startsWith("about:")) continue;
+                String host = Utils.hostOf(url);
+                if (host == null) continue;
+                // Search-result pages make poor shortcuts.
+                if (isSearchResult(url, host)) continue;
+                // One shortcut per site; defaults win their slot.
+                String key = hostKey(url);
+                if (!usedHosts.add(key)) continue;
+                if (defaultHosts.contains(key)) continue;
+                String name = e.title == null || e.title.isEmpty() ? host : e.title;
+                if (name.length() > 14) name = name.substring(0, 13) + "\u2026";
+                out.add(new Tile(name, url, monogram(host), colorFor(host)));
+            }
+        } catch (Exception ignored) {}
+        for (String[] d : DEFAULT_TILES) {
+            if (out.size() >= TILE_COUNT) break;
+            if (usedHosts.contains(hostKey(d[1]))) continue;
+            out.add(new Tile(d[0], d[1], d[2], d[3]));
+        }
+        return out;
+    }
+
+    private static boolean isSearchResult(String url, String host) {
+        String u = url.toLowerCase();
+        return u.contains("/search?") || u.contains("search?q=") || u.contains("/results?q=")
+                || (host.contains("google.") && u.contains("/search"))
+                || (host.contains("bing.com") && u.contains("/search"))
+                || (host.contains("duckduckgo.com") && u.contains("?q="))
+                || (host.contains("search.brave.com") && u.contains("?q="));
+    }
+
+    private static String hostKey(String url) {
+        String h = Utils.hostOf(url);
+        if (h == null) return url == null ? "" : url;
+        if (h.startsWith("www.")) h = h.substring(4);
+        return h;
+    }
+
+    private static String monogram(String seed) {
+        if (seed == null || seed.isEmpty()) return "?";
+        char ch = Character.toUpperCase(seed.trim().charAt(0));
+        return String.valueOf(ch);
+    }
+
+    private static String colorFor(String seed) {
+        int hash = 0;
+        if (seed != null) for (int i = 0; i < seed.length(); i++) hash = hash * 31 + seed.charAt(i);
+        return TILE_COLORS[Math.abs(hash) % TILE_COLORS.length];
+    }
+
+    public static String html(Context c, Prefs prefs) {
+        String action = searchAction(prefs);
         long totalBlocked = prefs.totalBlocked();
         String blockedText = totalBlocked > 0
                 ? totalBlocked + " ads and trackers blocked so far"
@@ -87,16 +206,11 @@ public final class StartPage {
           .append("<input id='q' type='search' placeholder='Search or type a URL' autocomplete='off' autofocus>")
           .append("<button type='submit'>Go</button>")
           .append("</div></form>")
-          .append("<div class='grid'>")
-          .append(tile("W", "#202122", "Wikipedia", "https://en.wikipedia.org"))
-          .append(tile("▶", "#ff0000", "YouTube", "https://www.youtube.com"))
-          .append(tile("G", "#24292f", "GitHub", "https://github.com"))
-          .append(tile("R", "#ff4500", "Reddit", "https://www.reddit.com"))
-          .append(tile("Y", "#ff6600", "Hacker News", "https://news.ycombinator.com"))
-          .append(tile("M", "#3b5998", "MDN", "https://developer.mozilla.org"))
-          .append(tile("@", "#ea4335", "Gmail", "https://mail.google.com"))
-          .append(tile("X", "#272a30", "X", "https://x.com"))
-          .append("</div>")
+          .append("<div class='grid'>");
+        for (Tile t : resolveTiles(c, prefs)) {
+            sb.append(tile(t.icon, t.color, t.name, t.url));
+        }
+        sb.append("</div>")
           .append("<div class='stat'><span class='dot'></span><span><b>")
           .append(blockedText).append("</b> &middot; Zerium v")
           .append(version).append(" &mdash; no telemetry, ever.</span></div>")
@@ -105,7 +219,13 @@ public final class StartPage {
     }
 
     private static String tile(String icon, String color, String name, String url) {
-        return "<a class='tile' href='" + url + "'><span class='ic' style='background:" + color
-                + "'>" + icon + "</span>" + name + "</a>";
+        String safeName = name == null ? "" : name.replace("&", "&amp;")
+                .replace("<", "&lt;").replace(">", "&gt;");
+        String safeUrl = url == null ? "" : url.replace("&", "&amp;")
+                .replace("'", "&#39;").replace("\"", "&quot;");
+        String safeIcon = icon == null ? "" : icon.replace("&", "&amp;")
+                .replace("<", "&lt;").replace(">", "&gt;");
+        return "<a class='tile' href='" + safeUrl + "'><span class='ic' style='background:"
+                + color + "'>" + safeIcon + "</span>" + safeName + "</a>";
     }
 }

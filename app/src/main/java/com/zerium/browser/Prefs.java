@@ -51,9 +51,41 @@ public class Prefs {
     public String allowlist() { return sp.getString("allowlist", ""); }
     public void setAllowlist(String v) { sp.edit().putString("allowlist", v == null ? "" : v).apply(); }
 
+    // Browsing behaviour
+    public boolean pullToRefresh() { return sp.getBoolean("pull_to_refresh", true); }
+    public void pullToRefresh(boolean v) { sp.edit().putBoolean("pull_to_refresh", v).apply(); }
+    public boolean mediaAutoplay() { return sp.getBoolean("media_autoplay", false); }
+    public void mediaAutoplay(boolean v) { sp.edit().putBoolean("media_autoplay", v).apply(); }
+    public boolean httpsUpgrade() { return sp.getBoolean("https_upgrade", true); }
+    public void httpsUpgrade(boolean v) { sp.edit().putBoolean("https_upgrade", v).apply(); }
+    public boolean forceZoom() { return sp.getBoolean("force_zoom", false); }
+    public void forceZoom(boolean v) { sp.edit().putBoolean("force_zoom", v).apply(); }
+
+    /** Web text zoom in percent (WebSettings.setTextZoom); 100 = page default. */
+    public int textZoom() { return sp.getInt("text_zoom", 100); }
+    public void textZoom(int v) { sp.edit().putInt("text_zoom", v).apply(); }
+
     // Filter list bookkeeping
+    public boolean autoUpdateLists() { return sp.getBoolean("auto_update_lists", true); }
+    public void autoUpdateLists(boolean v) { sp.edit().putBoolean("auto_update_lists", v).apply(); }
     public long listLastUpdate() { return sp.getLong("list_last_update", 0L); }
     public void listLastUpdate(long v) { sp.edit().putLong("list_last_update", v).apply(); }
+
+    /**
+     * Custom search engines as a JSON array of {"name":…,"url":…} objects.
+     * URLs must contain the %s query placeholder. Engine index >= 6 (the
+     * built-in count) selects customEngines[index - 6].
+     */
+    public String customEngines() { return sp.getString("custom_engines", ""); }
+    public void customEngines(String v) { sp.edit().putString("custom_engines", v == null ? "" : v).apply(); }
+
+    /**
+     * Start-page shortcuts as a JSON array of {"name":…,"url":…} objects.
+     * Empty means automatic mode: most-visited sites from history merged over
+     * the built-in defaults.
+     */
+    public String homeTiles() { return sp.getString("home_tiles", ""); }
+    public void homeTiles(String v) { sp.edit().putString("home_tiles", v == null ? "" : v).apply(); }
 
     // Open tabs persistence
     public String savedTabs() { return sp.getString("saved_tabs", ""); }

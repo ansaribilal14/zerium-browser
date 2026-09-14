@@ -60,6 +60,23 @@ public class HistoryDB extends SQLiteOpenHelper {
         return out;
     }
 
+    /**
+     * Most-visited distinct URLs for the start-page shortcuts, ordered by
+     * visit count. Titles keep their newest version; ties break arbitrarily.
+     */
+    public List<Entry> topSites(int limit) {
+        List<Entry> out = new ArrayList<>();
+        Cursor c = getReadableDatabase().rawQuery(
+                "SELECT MIN(id), url, MAX(title), MAX(visited) FROM history "
+                        + "GROUP BY url ORDER BY COUNT(*) DESC LIMIT ?",
+                new String[]{String.valueOf(Math.max(1, limit))});
+        while (c.moveToNext()) {
+            out.add(new Entry(c.getLong(0), c.getString(1), c.getString(2), c.getString(3)));
+        }
+        c.close();
+        return out;
+    }
+
     public void clear() {
         getWritableDatabase().delete("history", null, null);
     }

@@ -2,6 +2,13 @@ package com.zerium.browser;
 
 import android.content.Context;
 import org.json.JSONArray;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -32,7 +39,29 @@ public class CosmeticFilter {
     public static void invalidate() { cachedScript = null; }
 
     static List<String> loadSelectors(Context c) {
+        // A successfully validated downloaded list (FilterUpdater) wins over
+        // the shipped snapshot; falls back to the bundled asset otherwise.
+        try {
+            File updated = new File(c.getFilesDir(), FilterUpdater.COSMETIC_FILE);
+            if (updated.exists() && updated.length() > 0) {
+                List<String> fromFile = readFileLines(updated);
+                if (!fromFile.isEmpty()) return fromFile;
+            }
+        } catch (Exception ignored) {}
         return Utils.readAssetLines(c, "blocklists/cosmetic.txt");
+    }
+
+    private static List<String> readFileLines(File f) {
+        List<String> out = new ArrayList<>();
+        try (InputStream is = new FileInputStream(f)) {
+            BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+            String line;
+            while ((line = r.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty() && !line.startsWith("#") && !line.startsWith("!")) out.add(line);
+            }
+        } catch (Exception ignored) {}
+        return out;
     }
 
     static String buildScript(List<String> selectors) {
