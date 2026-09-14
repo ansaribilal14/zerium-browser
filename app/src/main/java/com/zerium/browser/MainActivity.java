@@ -543,10 +543,6 @@ public class MainActivity extends AppCompatActivity {
             if (tabs.currentTab() == tab) updateChrome(tab);
         }
 
-        @Override
-        public void onReceivedIcon(WebView view, android.graphics.Bitmap icon) {
-            if (icon != null && !tab.incognito) tab.favicon = icon;
-        }
 
         @Override
         public void onPageFinished(WebView view, String url) {
@@ -615,6 +611,11 @@ public class MainActivity extends AppCompatActivity {
             tab.title = title == null ? "" : title;
             if (tabs.currentTab() == tab) updateChrome(tab);
             tabsAdapter.notifyDataSetChanged();
+        }
+
+        @Override
+        public void onReceivedIcon(WebView view, android.graphics.Bitmap icon) {
+            if (icon != null && !tab.incognito) tab.favicon = icon;
         }
 
         @Override
