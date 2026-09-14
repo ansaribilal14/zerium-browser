@@ -16,8 +16,11 @@ Blocked requests receive an empty HTTP 404 response. Requests are counted per pa
 | List | Scope | License | Source |
 |---|---|---|---|
 | `hosts.txt` (bundled) | Ads, trackers, malware domains (~80k entries) | MIT | StevenBlack/hosts unified, frozen at build |
-| `hosts_updated.txt` (user-fetched) | Same, current | MIT | Fetched over HTTPS from the upstream repo, integrity-gated (size + sentinel) |
+| `hosts_updated.txt` (app-fetched) | Same, current | MIT | Fetched over HTTPS from the upstream repo, integrity-gated (size + sentinel) |
 | `cosmetic.txt` (bundled) | 1,200 sanitized generic element-hiding selectors (id/class/attribute mix, ad-related rules prioritized) | CC-BY-SA-3.0 (EasyList subset) + GPL-3.0 curated additions | EasyList generic-hide rules, sanitized and capped; attribution + license in the file header |
+| `cosmetic_updated.txt` (app-fetched) | Same, current | CC-BY-SA-3.0 + GPL-3.0 | Fetched over HTTPS from the Zerium repo, integrity-gated (size + `##` marker), atomically swapped |
+
+Since v1.5.0 both lists refresh themselves automatically about once a week (Settings toggle, on by default) or on demand via *Update filter lists*; downloads are validated before they replace the previous file and apply to newly loaded pages without a restart.
 
 ## YouTube strategy (client-side suppression, documented honestly)
 

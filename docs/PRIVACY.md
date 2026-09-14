@@ -6,7 +6,7 @@
 - Third-party cookies blocked. First-party cookies allowed (required for logins).
 - JavaScript enabled (disabling it globally breaks a large share of the modern web; the switch exists for users who want it).
 - Do Not Track and Sec-GPC headers sent on main-frame requests.
-- No analytics, no crash reporting, no remote config, no accounts. The app makes network calls for exactly three things: the pages you visit, downloads, and the filter-list update you explicitly trigger in Settings.
+- No analytics, no crash reporting, no remote config, no accounts. The app makes network calls for exactly four things: the pages you visit, downloads, the filter-list refresh (automatic about once a week or on your explicit tap in Settings — contacts `raw.githubusercontent.com` for the project's cosmetic list and StevenBlack's upstream hosts list), and page translation when you explicitly press *Translate page* (routes the page through Google's `translate.goog` proxy — the translated site is fetched by Google, exactly as if you had pasted the URL there yourself; nothing is sent automatically).
 
 ## Data handling
 

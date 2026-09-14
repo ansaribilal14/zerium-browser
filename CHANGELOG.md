@@ -8,8 +8,32 @@ Stable builds are published as immutable releases on version tags (see [Releases
 
 ### Planned
 - GeckoView engine track (v2.0): full migration assessment delivered in `docs/GECKOVIEW_MIGRATION.md`; next step is the Phase-0 spike branch. WebExtensions support, engine-level blocking, per-profile cookie isolation.
-- Per-site toggles (JavaScript, cookies, blocking) via a site panel
-- HTTPS-first mode with automatic upgrade and downgrade warnings
+- Per-site toggles (JavaScript, cookies) via a site panel; per-site desktop-mode memory.
+
+## [1.5.0] — 2026-09-15
+
+### Added
+- **Desktop site, per tab.** The menu gains a checkable *Desktop site* toggle that swaps the tab's user agent to a desktop Chromium string and reloads. The UA is derived at runtime from the device's own WebView engine (current Chromium major in reduced `major.0.0.0` form on a Linux X11 platform token) instead of a hardcoded stale version — old pinned versions now trigger Google's "unsupported browser" walls. Turning it off restores the tab's original mobile UA. Pattern proven in Lightning Browser and EinkBro.
+- **Reader view.** *Reader view* re-renders the current page as clean, theme-aware typography with a title, byline and estimated reading time (265 wpm, floored at 1 minute). Extraction uses Mozilla's Readability library (v0.6.0, Apache-2.0, attribution in the asset header) injected via `evaluateJavascript` so page CSP cannot block it; the original DOM is snapshotted on the page itself and restored exactly on toggle-off. The reader never re-fetches anything — paywalled pages show what the WebView already holds — and short or non-article pages get an honest "does not look like an article" message instead of empty content.
+- **Translate page.** Translates the current page through Google's `translate.goog` proxy in the same tab (subsequent links stay translated), targeting the device language, with no API key. While on a proxy page the menu offers *View original*, which returns to the stored pre-translation URL (or a best-effort reconstruction when the translation was opened from a link). No personal data leaves the device beyond what the translation service itself sees — same as entering the URL there manually.
+- **Print / Save as PDF.** *Print* hands the current page to the Android printing framework (`createPrintDocumentAdapter`), whose destination picker includes Save as PDF. Only offered on loaded pages, per the framework's own guidance.
+- **Add to home screen.** Pins a launcher shortcut for the current page with the site's favicon as the icon (captured via `onReceivedIcon`) and the page title as the label. Uses pinned-shortcut APIs (API 26+, no legacy path needed) and degrades to a toast on launchers that refuse pinning.
+- **Find bar rebuilt.** Find-in-page moved from a dialog to an inline bar docked under the toolbar: debounced `findAllAsync`, previous/next navigation, a `current/total` counter that updates only when counting finishes (avoiding flicker, with the classic 0-based-ordinal off-by-one handled), and proper keyboard/clear handling. Back, tab switch and tab close all dismiss it and clear matches.
+- **HTTPS upgrade for main frames.** Main-frame `http://` navigations are rewritten to `https://` before they leave the browser (local hosts, private LAN ranges and IPv6 literals are skipped). Invalid certificates still raise the existing user decision dialog, so a failed upgrade is always visible rather than silently downgraded.
+- **intent:// and external-app links handled properly.** `intent://` URIs are parsed and dispatched; `market://` links fall back to the Play Store web page; every other unhandled scheme now toasts "No app found to open this link" instead of failing silently.
+- **Custom search engines.** Settings → *Custom search engines* lets you add engines (name + URL with a `%s` placeholder), set them as default or delete them; they appear in the omnibox search, the start-page search pill and the engine picker. Defaults fall back safely if the selected engine is deleted.
+- **Dynamic start-page shortcuts.** The start-page tile grid is no longer hardcoded: by default it blends your most-visited sites from history (one tile per site, search-result pages excluded) with the built-in defaults, or you can define a custom tile list (Settings → *Home screen shortcuts*). Tile markup is HTML-escaped.
+- **Automatic filter-list updates.** A new *Keep filter lists updated* setting (on by default) refreshes both the hosts blocklist and the cosmetic element-hiding rules about once a week — or manually via the existing *Update filter lists* row, which now updates both lists. Downloads are validated (size + content marker) and swapped atomically; a failed download can never degrade blocking. Updated lists apply without a restart: the network blocklist reloads on the next Settings visit / app resume, and newly loaded pages pick up the refreshed cosmetic script. Sources: StevenBlack hosts (MIT) upstream and the Zerium project's own cosmetic list on GitHub.
+
+### Changed
+- **New browsing controls in Settings.** Web text size (50–200%, applied live to all open tabs), Force enable zoom (rewrites the page's viewport meta at document start, mirroring Firefox Focus / Chrome), media autoplay (blocked by default as before, now configurable), and pull-to-refresh (the gesture from the v1.3.1 fix is now a toggle).
+- **Allowlist quick action.** The *Blocked on this page* dialog now has an *Allow this site* button that adds the current host to the blocking allowlist immediately (duplicated entries are detected; the running AdBlocker rebuilds on the spot).
+
+### Honest scope
+- Reader view is a snapshot of whatever the WebView already rendered: hard-paywalled pages yield their stub, and infinite-scroll pages capture what was loaded when you toggled it. On sites with a strict CSP the reader's inline stylesheet may be dropped — content still renders, just with default styling.
+- HTTPS upgrade covers main frames only; sub-resource upgrades (mixed content) remain the WebView's compatibility-mode decision. Sites without TLS keep working through the existing warning dialog.
+- The translate proxy and filter-list updater add two new network contacts (`translate.goog` only when you press Translate; `raw.githubusercontent.com`/StevenBlack only when lists update). Documented in `docs/PRIVACY.md`.
+- Reader text extraction by Mozilla Readability is used verbatim; no readability heuristics of our own are layered on top.
 
 ## [1.4.0] — 2026-09-14
 

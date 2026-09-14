@@ -33,8 +33,14 @@ The project follows three hard rules. First, **honesty over marketing**: every c
 - **Live transparency** — menu shows blocked counts; the padlock icon and connection dialog explain HTTPS status; a per-site allowlist exempts chosen domains.
 - **Tabs** — multi-tab browsing with a grid switcher showing live page previews, incognito tabs that skip history and bookmarks, and session restore across restarts.
 - **Privacy controls** — third-party cookie blocking (on by default), optional global cookie/JavaScript switches, Do Not Track + Global Privacy Control headers, algorithmic darkening, one-tap data clearing (history, cookies, site storage).
-- **Real browser plumbing** — omnibox with smart URL/search detection, six search engines (DuckDuckGo default), bookmarks and history (SQLite), system DownloadManager integration, file upload support, camera/microphone permission prompts, geolocation prompts, SSL error warnings, find-in-page, share targets, full-screen video, Material You dynamic theming with system/light/dark modes.
-- **Filter list updates** — one tap in Settings fetches the newest StevenBlack list with integrity validation.
+- **Real browser plumbing** — omnibox with smart URL/search detection, built-in plus custom search engines, bookmarks and history (SQLite), system DownloadManager integration, file upload support, camera/microphone permission prompts, geolocation prompts, SSL error warnings, find-in-page, share targets, full-screen video, Material You dynamic theming with system/light/dark modes.
+- **Reader view** — clean, theme-aware article rendering powered by Mozilla Readability (Apache-2.0), with byline and estimated reading time; the original page is restored exactly on toggle-off and nothing is re-fetched.
+- **Desktop site, per tab** — desktop user agent derived from the device's own WebView engine version (never a stale hardcoded one), with one-tap toggle and reload.
+- **Translate page** — one-tap full-page translation through Google's `translate.goog` proxy in the same tab, no API key, with a View-original way back.
+- **Print / Save as PDF & Add to home screen** — the Android printing framework renders the page (the print dialog offers Save as PDF); any site can be pinned to your launcher with its favicon.
+- **HTTPS-first upgrades** — main-frame `http://` navigations are upgraded to `https://` automatically (local addresses skipped); certificate failures still raise an explicit dialog.
+- **Filter list updates** — the hosts blocklist and the cosmetic rules refresh themselves about once a week (or on demand from Settings) with validated, atomically swapped downloads that apply without a restart.
+- **Personal tuning** — web text size (50–200%, applied live), force-enable zoom, media autoplay control, pull-to-refresh toggle, custom start-page shortcut tiles (automatic most-visited or your own list), and a one-tap "Allow this site" exemption in the blocking dialog.
 
 ## Releases & channels
 
@@ -45,7 +51,7 @@ Zerium ships on two channels. Both APKs are signed with the same key, and every 
 | **Stable** | `vX.Y.Z` (e.g. [`v1.1.0`](https://github.com/ansaribilal14/zerium-browser/releases/tag/v1.1.0)) | Immutable, tagged, versioned release. History in [`CHANGELOG.md`](CHANGELOG.md). | Daily use — recommended |
 | **Rolling** | [`latest`](https://github.com/ansaribilal14/zerium-browser/releases/tag/latest) | Recreated on every successful build of `main`; includes the newest fixes. | Testers and contributors |
 
-Each release provides a **signed release APK** (recommended) and a **debug APK** (for development), named `Zerium-v<version>-r<commit>-{release,debug}.apk`.
+Each release provides a **signed release APK** (recommended) and a **debug APK** (for development), named `Zerium-v<version>-{release,debug}.apk`.
 
 ## Installation
 
@@ -79,12 +85,13 @@ Zerium v1 uses the **Android System WebView** engine. That is a deliberate, docu
 
 ## Roadmap
 
-1. **GeckoView engine track** — evaluate Mozilla GeckoView as an alternative engine build flavor, which brings real WebExtensions support (including uBlock Origin-class blockers) and per-profile cookie isolation.
-2. Per-site toggles (JavaScript, cookies, blocking) with a site panel.
-3. HTTPS-first mode with automatic upgrade and downgrade warnings.
-4. Custom filter syntax (subset of EasyList element hiding).
-5. WebView Profiles API for true incognito isolation (API level permitting).
-6. Reproducible release signing documentation.
+1. **GeckoView engine track** — evaluate Mozilla GeckoView as an alternative engine build flavor, which brings real WebExtensions support (including uBlock Origin-class blockers) and per-profile cookie isolation. Assessment delivered in `docs/GECKOVIEW_MIGRATION.md`; next step is the Phase-0 spike.
+2. Per-site toggles (JavaScript, cookies) with a site panel; per-site desktop-mode memory.
+3. Custom filter syntax (subset of EasyList element hiding) and domain-qualified cosmetic rules.
+4. WebView Profiles API for true incognito isolation (API level permitting).
+5. Reproducible release signing documentation.
+
+(Shipped in v1.5.0: HTTPS-first main-frame upgrades, reader view, translate, print, custom engines, automatic list updates.)
 
 ## Building from source
 

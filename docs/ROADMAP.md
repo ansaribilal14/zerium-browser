@@ -1,8 +1,16 @@
 # Roadmap
 
+## Shipped in v1.5.0 (2026-09)
+
+- HTTPS-first main-frame upgrades with the existing certificate warning as the downgrade path.
+- Reader view (Mozilla Readability), translate page (translate.goog), print/Save-as-PDF, add-to-home-screen.
+- Desktop-site per-tab toggle with a runtime-derived desktop user agent.
+- Custom search engines, dynamic start-page shortcuts, text size / force zoom / autoplay / pull-to-refresh controls.
+- Automatic weekly filter-list refresh (hosts + cosmetic), validated and applied without restart.
+
 ## v1.1 - near term
 
-- Site panel: per-site toggles for JavaScript, cookies, blocking, desktop mode.
+- Site panel: per-site toggles for JavaScript, cookies, blocking, desktop mode (per-site memory for desktop mode shipped in v1.5.0 as a per-tab toggle; per-site memory remains).
 - WebView Profiles API evaluation for true incognito cookie isolation.
 - HTTPS-first upgrades with downgrade warnings.
 - Long-press image/link context menu (open in new tab, download, share).
