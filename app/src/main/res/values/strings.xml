@@ -29,6 +29,12 @@
     <string name="menu_block_info">Blocked on this page</string>
     <string name="menu_settings">Settings</string>
     <string name="menu_exit">Exit</string>
+    <string name="menu_desktop">Desktop site</string>
+    <string name="menu_reader">Reader view</string>
+    <string name="menu_translate">Translate page</string>
+    <string name="menu_view_original">View original</string>
+    <string name="menu_print">Print / Save as PDF</string>
+    <string name="menu_pin">Add to home screen</string>
 
     <!-- Feedback -->
     <string name="bookmark_added">Bookmark added</string>
@@ -64,7 +70,18 @@
     <string name="block_info_body">Blocked on this page: %1$d\nBlocked this session: %2$d\nBlocked all time: %3$d\n\nNetwork blocking uses the StevenBlack unified hosts list (MIT). In-stream video ads cannot be removed at the network level.</string>
     <string name="find_in_page">Find in page</string>
     <string name="find_next">Next</string>
+    <string name="find_prev">Previous</string>
     <string name="find_close">Close</string>
+    <string name="no_app_for_link">No app found to open this link</string>
+    <string name="reader_minutes">Reader view · ~%1$d min read</string>
+    <string name="reader_unavailable">This page does not look like an article</string>
+    <string name="translating">Translating via Google Translate…</string>
+    <string name="print_failed">Could not start printing</string>
+    <string name="pin_requested">Shortcut requested — confirm on your launcher</string>
+    <string name="pin_unsupported">Your launcher does not support pinned shortcuts</string>
+    <string name="allow_site">Allow this site</string>
+    <string name="site_allowed">Blocking disabled for %1$s</string>
+    <string name="site_already_allowed">This site is already exempt from blocking</string>
 
     <!-- Settings -->
     <string name="settings_general">General</string>
@@ -73,6 +90,16 @@
     <string name="settings_data">Data</string>
     <string name="settings_about">About</string>
     <string name="search_engine">Search engine</string>
+    <string name="manage_engines">Custom search engines</string>
+    <string name="manage_engines_sub">Add your own engines to the omnibox and start page</string>
+    <string name="add_engine">Add search engine</string>
+    <string name="engine_name_hint">Name (e.g. Wiki)</string>
+    <string name="engine_url_hint">URL with %s placeholder</string>
+    <string name="engine_url_invalid">The URL must start with http(s) and contain a %s placeholder</string>
+    <string name="engine_added">Search engine added</string>
+    <string name="engine_deleted">Search engine removed</string>
+    <string name="set_default">Set as default</string>
+    <string name="no_custom_engines">No custom engines yet</string>
     <string name="app_theme">App theme</string>
     <string-array name="themes">
         <item>System</item>
@@ -81,14 +108,34 @@
     </string-array>
     <string name="block_master">Block ads and trackers</string>
     <string name="block_master_sub">Network-level blocking with the built-in hosts list</string>
+    <string name="text_size">Web text size</string>
+    <string name="text_size_percent">%1$d%%</string>
+    <string name="pull_to_refresh">Pull down to refresh</string>
+    <string name="pull_to_refresh_sub">Swipe down at the top of a page to reload it</string>
+    <string name="force_zoom">Force enable zoom</string>
+    <string name="force_zoom_sub">Allow pinch zoom on pages that try to disable it (applies to new pages)</string>
+    <string name="autoplay">Allow media autoplay</string>
+    <string name="autoplay_sub">When off, videos only start after you tap them (applies to new tabs)</string>
+    <string name="https_upgrade">Upgrade connections to HTTPS</string>
+    <string name="https_upgrade_sub">Automatic main-frame http to https rewrite; local addresses are skipped</string>
+    <string name="home_shortcuts">Home screen shortcuts</string>
+    <string name="home_shortcuts_sub">Tiles shown on the start page</string>
+    <string name="shortcuts_auto">Automatic (most visited sites)</string>
+    <string name="shortcuts_custom">Custom list</string>
+    <string name="shortcuts_hint">One per line: Name | https://example.com</string>
+    <string name="shortcuts_saved">Shortcuts updated</string>
+    <string name="shortcuts_invalid">Some lines are invalid and were skipped (format: Name | https://url)</string>
     <string name="cosmetic">Hide leftover ad elements</string>
     <string name="cosmetic_sub">Element hiding for empty ad boxes and banners</string>
     <string name="youtube_suppress">YouTube ad suppression</string>
     <string name="youtube_suppress_sub">Player API pruning, auto-skip and overlay hiding on youtube.com</string>
     <string name="update_lists">Update filter lists</string>
+    <string name="auto_update_lists">Keep filter lists updated</string>
+    <string name="auto_update_lists_sub">Refresh the blocklists automatically about once a week</string>
     <string name="lists_never">Never</string>
     <string name="lists_updating">Updating…</string>
-    <string name="lists_updated">Filter lists updated. Restart Zerium to apply.</string>
+    <string name="lists_updated">Filter lists updated — new pages use them immediately</string>
+    <string name="lists_partial">Hosts list updated; cosmetic list failed</string>
     <string name="lists_failed">Update failed. Check your connection.</string>
     <string name="allowlist">Site allowlist</string>
     <string name="allowlist_title">Site allowlist</string>

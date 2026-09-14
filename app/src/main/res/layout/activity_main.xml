@@ -77,6 +77,72 @@
             android:progressBackgroundTint="#00000000"
             android:visibility="gone" />
 
+        <LinearLayout
+            android:id="@+id/findBar"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="?attr/colorSurface"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="4dp"
+            android:visibility="gone">
+
+            <EditText
+                android:id="@+id/findInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:hint="@string/find_in_page"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:singleLine="true"
+                android:textColor="?attr/colorOnSurface"
+                android:textColorHint="?attr/colorOnSurfaceVariant"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/findCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="44dp"
+                android:gravity="center"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:text="0/0"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textSize="13sp" />
+
+            <ImageButton
+                android:id="@+id/btnFindPrev"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/find_prev"
+                android:src="@drawable/ic_chevron_up"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/btnFindNext"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/find_next"
+                android:src="@drawable/ic_chevron_down"
+                app:tint="?attr/colorOnSurfaceVariant" />
+
+            <ImageButton
+                android:id="@+id/btnFindClose"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/find_close"
+                android:src="@drawable/ic_close"
+                app:tint="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
+
         <com.zerium.browser.BrowserSwipeLayout
             android:id="@+id/swipe"
             android:layout_width="match_parent"

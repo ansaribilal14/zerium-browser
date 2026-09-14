@@ -8,11 +8,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,8 +61,6 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MainActivity extends AppCompatActivity {
 
     static final String HOME_URL = "about:home";
-    private static final String DESKTOP_UA =
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     private static final int MAX_RESTORED_TABS = 10;
 
     // Menu command ids
@@ -69,10 +72,14 @@ public class MainActivity extends AppCompatActivity {
     private static final int MENU_DOWNLOADS = 6;
     private static final int MENU_FIND = 7;
     private static final int MENU_SHARE = 8;
-    private static final int MENU_DESKTOP = 9;
     private static final int MENU_BLOCK_INFO = 10;
     private static final int MENU_SETTINGS = 11;
     private static final int MENU_EXIT = 12;
+    private static final int MENU_DESKTOP = 13;
+    private static final int MENU_READER = 14;
+    private static final int MENU_TRANSLATE = 15;
+    private static final int MENU_PRINT = 16;
+    private static final int MENU_PIN = 17;
 
     private static final int REQ_FILE_CHOOSER = 41;
     private static final int REQ_PERMISSION = 42;
@@ -97,6 +104,14 @@ public class MainActivity extends AppCompatActivity {
     private FrameLayout fullscreenContainer;
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
+
+    // Find in page (inline bar)
+    private LinearLayout findBar;
+    private EditText findInput;
+    private TextView findCount;
+    private Runnable findPending;
+
+    private String cachedDesktopUA;
 
     private ValueCallback<Uri[]> fileCallback;
     private PermissionRequest pendingPermission;
@@ -156,6 +171,41 @@ public class MainActivity extends AppCompatActivity {
         });
         findViewById(R.id.btnMenuTop).setOnClickListener(this::showMenu);
         findViewById(R.id.btnMenuBottom).setOnClickListener(this::showMenu);
+
+        findBar = findViewById(R.id.findBar);
+        findInput = findViewById(R.id.findInput);
+        findCount = findViewById(R.id.findCount);
+        findViewById(R.id.btnFindNext).setOnClickListener(v -> {
+            Tab t = tabs.currentTab();
+            if (t != null) t.webView.findNext(true);
+        });
+        findViewById(R.id.btnFindPrev).setOnClickListener(v -> {
+            Tab t = tabs.currentTab();
+            if (t != null) t.webView.findNext(false);
+        });
+        findViewById(R.id.btnFindClose).setOnClickListener(v -> hideFindBar());
+        findInput.setOnEditorActionListener((v, actionId, event) -> {
+            Tab t = tabs.currentTab();
+            if (t != null) t.webView.findNext(true);
+            return true;
+        });
+        findInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (findPending != null) findBar.removeCallbacks(findPending);
+                findPending = () -> {
+                    Tab t = tabs.currentTab();
+                    if (t == null) return;
+                    String q = s.toString().trim();
+                    if (q.isEmpty()) t.webView.clearMatches();
+                    else t.webView.findAllAsync(q);
+                };
+                findBar.postDelayed(findPending, 250);
+            }
+        });
+
+        maybeAutoUpdateLists();
 
         omnibox.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -225,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (Intent.ACTION_SEND.equals(action)) {
             String text = intent.getStringExtra(Intent.EXTRA_TEXT);
             if (text != null) {
-                String url = Utils.smartUrl(text, prefs.searchEngine());
+                String url = Utils.smartUrl(text, prefs);
                 if (url != null) openTab(url, false);
             }
         }
@@ -251,6 +301,7 @@ public class MainActivity extends AppCompatActivity {
     private void switchTab(Tab tab) {
         int idx = tabs.tabs().indexOf(tab);
         if (idx < 0) return;
+        hideFindBar();
         tabs.setCurrent(idx);
         showCurrentWebView();
         loadPending(tab);
@@ -308,6 +359,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView(Tab tab) {
         WebView w = tab.webView;
         WebSettings s = w.getSettings();
+        tab.mobileUA = s.getUserAgentString();
         applyWebSettings(s);
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(prefs.cookiesEnabled());
@@ -350,11 +402,32 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Exception ignored) {}
 
+        // Force-zoom rewrites the page viewport meta so pinch zoom always works
+        // (mirrors Firefox Focus "Always enable zoom" / Chrome "force enable zoom").
+        if (prefs.forceZoom() && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            try {
+                String forceZoomJs = "(function(){function f(){try{"
+                        + "var m=document.querySelector('meta[name=\"viewport\"]');"
+                        + "if(m){m.setAttribute('content',"
+                        + "'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes');}"
+                        + "}catch(e){}}f();"
+                        + "document.addEventListener('DOMContentLoaded',f);})();";
+                java.util.Set<String> allOrigins = new java.util.HashSet<>(
+                        java.util.Arrays.asList("http://*/*", "https://*/*"));
+                WebViewCompat.addDocumentStartJavaScript(w, forceZoomJs, allOrigins);
+            } catch (Exception ignored) {}
+        }
+
         w.setWebViewClient(new ZeriumWebViewClient(tab));
         w.setWebChromeClient(new ZeriumChromeClient(tab));
         w.setDownloadListener(this::startDownload);
-        w.setFindListener((activeMatch, nbMatches, isDoneCounting) ->
-                updateChrome(tabs.currentTab()));
+        w.setFindListener((activeMatchOrdinal, numberOfMatches, isDoneCounting) -> {
+            if (findBar == null || findBar.getVisibility() != View.VISIBLE) return;
+            if (isDoneCounting) {
+                int shown = numberOfMatches == 0 ? 0 : activeMatchOrdinal + 1;
+                findCount.setText(shown + "/" + numberOfMatches);
+            }
+        });
     }
 
     private void applyWebSettings(WebSettings s) {
@@ -370,7 +443,8 @@ public class MainActivity extends AppCompatActivity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         s.setSavePassword(false);
-        s.setMediaPlaybackRequiresUserGesture(true);
+        s.setMediaPlaybackRequiresUserGesture(!prefs.mediaAutoplay());
+        s.setTextZoom(prefs.textZoom());
     }
 
     private class ZeriumWebViewClient extends WebViewClient {
@@ -382,11 +456,54 @@ public class MainActivity extends AppCompatActivity {
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
             String scheme = uri.getScheme() == null ? "" : uri.getScheme();
-            if (scheme.equals("http") || scheme.equals("https")) return false;
+            if (scheme.equals("http")) {
+                // HTTPS-first: upgrade main-frame navigations, skipping local
+                // addresses that have no TLS to upgrade to.
+                if (prefs.httpsUpgrade() && request.isForMainFrame()
+                        && isUpgradableHost(uri.getHost())) {
+                    view.loadUrl(uri.buildUpon().scheme("https").build().toString());
+                    return true;
+                }
+                return false;
+            }
+            if (scheme.equals("https")) return false;
+            if (scheme.equals("intent")) {
+                try {
+                    startActivity(Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME));
+                } catch (Exception e) {
+                    toast(R.string.no_app_for_link);
+                }
+                return true;
+            }
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, uri));
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                if (scheme.equals("market")) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://play.google.com/store")));
+                    } catch (Exception ignored) {}
+                } else {
+                    toast(R.string.no_app_for_link);
+                }
+            }
             return true;
+        }
+
+        private boolean isUpgradableHost(String host) {
+            if (host == null || host.isEmpty()) return false;
+            String h = host.toLowerCase();
+            if (h.equals("localhost") || h.endsWith(".localhost") || h.endsWith(".local")
+                    || h.endsWith(".lan") || h.endsWith(".internal") || h.endsWith(".home")) {
+                return false;
+            }
+            if (h.startsWith("10.") || h.startsWith("127.") || h.startsWith("192.168.")
+                    || h.startsWith("172.16.") || h.startsWith("172.17.") || h.startsWith("172.18.")
+                    || h.startsWith("172.19.") || h.startsWith("172.2") || h.startsWith("172.30.")
+                    || h.startsWith("172.31.")) {
+                return false;
+            }
+            return !h.contains(":"); // IPv6 literals stay as-is
         }
 
         @Override
@@ -412,7 +529,23 @@ public class MainActivity extends AppCompatActivity {
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
             tab.url = url;
             tab.blockedOnPage = 0;
+            tab.readerActive = false;
+            // Track the pre-translation URL for the View-original action. Links
+            // inside a translated page stay on *.translate.goog, so a missing
+            // exact source falls back to deriving it from the proxy URL.
+            if (url != null && url.contains(".translate.goog")) {
+                if (tab.translateSourceUrl == null) {
+                    tab.translateSourceUrl = originalFromTranslateUrl(url);
+                }
+            } else {
+                tab.translateSourceUrl = null;
+            }
             if (tabs.currentTab() == tab) updateChrome(tab);
+        }
+
+        @Override
+        public void onReceivedIcon(WebView view, android.graphics.Bitmap icon) {
+            if (icon != null && !tab.incognito) tab.favicon = icon;
         }
 
         @Override
@@ -633,7 +766,7 @@ public class MainActivity extends AppCompatActivity {
             loadInTab(t, HOME_URL);
             return;
         }
-        String url = Utils.smartUrl(text, prefs.searchEngine());
+        String url = Utils.smartUrl(text, prefs);
         if (url != null) loadInTab(t, url);
     }
 
@@ -648,8 +781,9 @@ public class MainActivity extends AppCompatActivity {
     private void updateChrome(Tab tab) {
         if (tab == null) return;
         // Refreshing the generated start page is meaningless; also kills the
-        // pointless spinner flash when pulling down on it. Re-armed for real pages.
-        swipe.setEnabled(!isStartPage(tab));
+        // pointless spinner flash when pulling down on it. Re-armed for real
+        // pages unless the user disabled pull-to-refresh entirely.
+        swipe.setEnabled(!isStartPage(tab) && prefs.pullToRefresh());
         if (isStartPage(tab)) {
             omnibox.setText("");
             omnibox.setHint(R.string.search_hint);
@@ -693,6 +827,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showMenu(View anchor) {
         PopupMenu pm = new PopupMenu(this, anchor);
+        Tab t = tabs.currentTab();
         pm.getMenu().add(0, MENU_NEW_TAB, 0, R.string.menu_new_tab);
         pm.getMenu().add(0, MENU_NEW_INCOGNITO, 1, R.string.menu_new_incognito);
         pm.getMenu().add(0, MENU_BOOKMARK_ADD, 2, isCurrentBookmarked()
@@ -701,15 +836,30 @@ public class MainActivity extends AppCompatActivity {
         pm.getMenu().add(0, MENU_HISTORY, 4, R.string.menu_history);
         pm.getMenu().add(0, MENU_DOWNLOADS, 5, R.string.menu_downloads);
         pm.getMenu().add(0, MENU_FIND, 6, R.string.menu_find);
-        pm.getMenu().add(0, MENU_SHARE, 7, R.string.menu_share);
-        pm.getMenu().add(0, MENU_BLOCK_INFO, 8, R.string.menu_block_info);
-        pm.getMenu().add(0, MENU_SETTINGS, 9, R.string.menu_settings);
-        pm.getMenu().add(0, MENU_EXIT, 10, R.string.menu_exit);
+        pm.getMenu().add(0, MENU_DESKTOP, 7, R.string.menu_desktop)
+                .setCheckable(true).setChecked(t != null && t.desktopMode);
+        pm.getMenu().add(0, MENU_READER, 8, R.string.menu_reader)
+                .setEnabled(t != null && !isStartPage(t));
+        pm.getMenu().add(0, MENU_TRANSLATE, 9, isOnTranslatedPage(t)
+                ? R.string.menu_view_original : R.string.menu_translate)
+                .setEnabled(t != null && !isStartPage(t));
+        pm.getMenu().add(0, MENU_PRINT, 10, R.string.menu_print)
+                .setEnabled(t != null && !isStartPage(t));
+        pm.getMenu().add(0, MENU_PIN, 11, R.string.menu_pin)
+                .setEnabled(t != null && !isStartPage(t));
+        pm.getMenu().add(0, MENU_SHARE, 12, R.string.menu_share);
+        pm.getMenu().add(0, MENU_BLOCK_INFO, 13, R.string.menu_block_info);
+        pm.getMenu().add(0, MENU_SETTINGS, 14, R.string.menu_settings);
+        pm.getMenu().add(0, MENU_EXIT, 15, R.string.menu_exit);
         pm.setOnMenuItemClickListener(item -> {
             handleMenu(item.getItemId());
             return true;
         });
         pm.show();
+    }
+
+    private boolean isOnTranslatedPage(Tab t) {
+        return t != null && t.url != null && t.url.contains(".translate.goog");
     }
 
     private boolean isCurrentBookmarked() {
@@ -755,6 +905,11 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case MENU_BLOCK_INFO: showBlockInfo(); break;
+            case MENU_DESKTOP: toggleDesktop(); break;
+            case MENU_READER: toggleReader(); break;
+            case MENU_TRANSLATE: translatePage(); break;
+            case MENU_PRINT: printPage(); break;
+            case MENU_PIN: addToHomeScreen(); break;
             case MENU_SETTINGS:
                 startActivity(new Intent(this, SettingsActivity.class));
                 break;
@@ -763,62 +918,244 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showBlockInfo() {
-        new AlertDialog.Builder(this)
+        Tab t = tabs.currentTab();
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
                 .setTitle(R.string.block_info_title)
                 .setMessage(getString(R.string.block_info_body,
-                        tabs.currentTab() == null ? 0 : tabs.currentTab().blockedOnPage,
+                        t == null ? 0 : t.blockedOnPage,
                         sessionBlocked.get(),
-                        prefs.totalBlocked() + (tabs.currentTab() == null ? 0 : tabs.currentTab().blockedOnPage)))
-                .setPositiveButton(R.string.ok, null)
-                .show();
+                        prefs.totalBlocked() + (t == null ? 0 : t.blockedOnPage)))
+                .setPositiveButton(R.string.ok, null);
+        if (t != null && !isStartPage(t)) {
+            final String host = Utils.hostOf(t.url);
+            if (host != null && !host.isEmpty()) {
+                b.setNeutralButton(R.string.allow_site, (d, w) -> {
+                    String cur = prefs.allowlist();
+                    String lower = cur == null ? "" : cur.toLowerCase();
+                    if (lower.contains(host)) {
+                        toast(R.string.site_already_allowed);
+                    } else {
+                        prefs.setAllowlist(cur == null || cur.isEmpty() ? host : cur + "\n" + host);
+                        adBlocker.rebuildAllowlist(prefs.allowlist());
+                        toast(R.string.site_allowed);
+                    }
+                });
+            }
+        }
+        b.show();
     }
 
     private void showFindBar() {
+        if (tabs.currentTab() == null) return;
+        findBar.setVisibility(View.VISIBLE);
+        findInput.setText("");
+        findCount.setText("0/0");
+        findInput.requestFocus();
+        findInput.post(() -> {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) imm.showSoftInput(findInput, InputMethodManager.SHOW_IMPLICIT);
+        });
+    }
+
+    private void hideFindBar() {
+        if (findBar.getVisibility() != View.VISIBLE) return;
+        findBar.setVisibility(View.GONE);
         Tab t = tabs.currentTab();
-        if (t == null) return;
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.HORIZONTAL);
-        box.setPadding(24, 12, 24, 12);
-        final EditText input = new EditText(this);
-        input.setHint(R.string.find_in_page);
-        input.setSingleLine(true);
-        input.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        box.addView(input);
-        final TextView count = new TextView(this);
-        count.setPadding(16, 0, 16, 0);
-        count.setText("0/0");
-        box.addView(count);
+        if (t != null) t.webView.clearMatches();
+        hideKeyboard();
+    }
 
-        t.webView.setFindListener((active, total, done) ->
-                count.setText(active + "/" + total));
+    // ---------- Page tools ----------
 
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.menu_find)
-                .setView(box)
-                .setPositiveButton(R.string.find_next, (d, w) -> t.webView.findNext(true))
-                .setNegativeButton(R.string.find_close, (d, w) -> t.webView.clearMatches())
-                .setOnDismissListener(d -> {
-                    t.webView.clearMatches();
-                    t.webView.setFindListener(null);
-                })
-                .show();
-        input.addTextChangedListener(new android.text.TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void afterTextChanged(android.text.Editable s) {
-                if (s.length() > 0) t.webView.findAllAsync(s.toString());
-                else t.webView.clearMatches();
+    /**
+     * Desktop user agent derived from the device's own WebView engine so the
+     * Chromium major version always matches what the device actually runs
+     * (stale hardcoded versions trigger Google "unsupported browser" walls).
+     * Desktop Chromium sends major.0.0.0 since the reduced-UA rollout.
+     */
+    private String desktopUA() {
+        if (cachedDesktopUA != null) return cachedDesktopUA;
+        String major = "130";
+        try {
+            String def = WebSettings.getDefaultUserAgent(this);
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("Chrome/(\\d+)").matcher(def);
+            if (m.find()) major = m.group(1);
+        } catch (Exception ignored) {}
+        cachedDesktopUA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/" + major + ".0.0.0 Safari/537.36";
+        return cachedDesktopUA;
+    }
+
+    /** Per-tab desktop-site toggle: swap the UA and reload (Lightning-style). */
+    private void toggleDesktop() {
+        Tab t = tabs.currentTab();
+        if (t == null || isStartPage(t)) return;
+        t.desktopMode = !t.desktopMode;
+        WebSettings s = t.webView.getSettings();
+        if (t.desktopMode) {
+            if (t.mobileUA == null || t.mobileUA.isEmpty()) t.mobileUA = s.getUserAgentString();
+            s.setUserAgentString(desktopUA());
+        } else {
+            s.setUserAgentString(t.mobileUA != null && !t.mobileUA.isEmpty()
+                    ? t.mobileUA : WebSettings.getDefaultUserAgent(this));
+        }
+        t.webView.reload();
+    }
+
+    /**
+     * Reader view toggle. Enters via bundled Mozilla Readability (Apache-2.0);
+     * leaves by restoring the DOM snapshot cached on the page. Never
+     * auto-triggered and never re-fetches anything: what the WebView already
+     * holds is all the reader can show, so paywalled pages yield their stubs.
+     */
+    private void toggleReader() {
+        final Tab t = tabs.currentTab();
+        if (t == null || isStartPage(t)) return;
+        if (t.readerActive) {
+            t.readerActive = false;
+            t.webView.evaluateJavascript(ReaderSupport.offScript(), null);
+            return;
+        }
+        t.webView.evaluateJavascript(ReaderSupport.onScript(this), value -> {
+            try {
+                org.json.JSONObject o = new org.json.JSONObject(value);
+                int code = o.optInt("ok", 0);
+                if (code == 1) {
+                    t.readerActive = true;
+                    Toast.makeText(MainActivity.this, getString(
+                            R.string.reader_minutes, o.optInt("minutes", 1)),
+                            Toast.LENGTH_SHORT).show();
+                } else if (code == 3) {
+                    t.readerActive = true;
+                } else {
+                    Toast.makeText(MainActivity.this, R.string.reader_unavailable,
+                            Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                Toast.makeText(MainActivity.this, R.string.reader_unavailable,
+                        Toast.LENGTH_SHORT).show();
             }
         });
-        input.setOnEditorActionListener((v, actionId, event) -> {
-            t.webView.findNext(true);
-            return true;
+    }
+
+    /**
+     * Translate the current page through Google's translate.goog proxy in the
+     * same tab (links keep translating). No API key, no page re-fetch of our
+     * own. On a proxy page the menu offers View original instead.
+     */
+    private void translatePage() {
+        Tab t = tabs.currentTab();
+        if (t == null || isStartPage(t)) return;
+        Uri u = Uri.parse(t.url);
+        String host = u.getHost();
+        if (host == null || host.isEmpty()) return;
+        if (host.endsWith(".translate.goog") || host.equals("translate.goog")) {
+            String back = t.translateSourceUrl != null
+                    ? t.translateSourceUrl : originalFromTranslateUrl(t.url);
+            if (back != null) loadInTab(t, back);
+            return;
+        }
+        String tl = java.util.Locale.getDefault().getLanguage();
+        if (tl == null || tl.isEmpty()) tl = "en";
+        Uri out = u.buildUpon()
+                .scheme("https")
+                .authority(host.replace('.', '-') + ".translate.goog")
+                .appendQueryParameter("_x_tr_sl", "auto")
+                .appendQueryParameter("_x_tr_tl", tl)
+                .appendQueryParameter("_x_tr_hl", tl)
+                .appendQueryParameter("_x_tr_pto", "ajax,elem")
+                .build();
+        t.translateSourceUrl = t.url;
+        loadInTab(t, out.toString());
+        toast(R.string.translating);
+    }
+
+    /** Best-effort inverse of the translate.goog host rewriting. */
+    private static String originalFromTranslateUrl(String url) {
+        try {
+            Uri u = Uri.parse(url);
+            String host = u.getHost();
+            if (host == null) return null;
+            int i = host.lastIndexOf(".translate.goog");
+            if (i <= 0) return null;
+            String origHost = host.substring(0, i).replace('-', '.');
+            Uri.Builder b = u.buildUpon().scheme("https").authority(origHost).clearQuery();
+            for (String key : u.getQueryParameterNames()) {
+                if (key == null || key.startsWith("_x_tr_")) continue;
+                for (String v : u.getQueryParameters(key)) b.appendQueryParameter(key, v);
+            }
+            return b.build().toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** System print dialog; its destination picker offers Save as PDF. */
+    private void printPage() {
+        Tab t = tabs.currentTab();
+        if (t == null || isStartPage(t)) return;
+        try {
+            PrintManager pmgr = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+            if (pmgr == null) return;
+            String title = t.title == null || t.title.isEmpty()
+                    ? String.valueOf(Utils.hostOf(t.url)) : t.title;
+            String jobName = getString(R.string.app_name) + " \u2014 " + title;
+            pmgr.print(jobName, t.webView.createPrintDocumentAdapter(jobName),
+                    new PrintAttributes.Builder().build());
+        } catch (Exception e) {
+            toast(R.string.print_failed);
+        }
+    }
+
+    /** Pins a shortcut to the launcher with the site icon (API 26+ guaranteed). */
+    private void addToHomeScreen() {
+        Tab t = tabs.currentTab();
+        if (t == null || isStartPage(t)) return;
+        try {
+            ShortcutManager sm = getSystemService(ShortcutManager.class);
+            if (sm == null || !sm.isRequestPinShortcutSupported()) {
+                toast(R.string.pin_unsupported);
+                return;
+            }
+            Intent si = new Intent(Intent.ACTION_VIEW, Uri.parse(t.url));
+            si.setPackage(getPackageName());
+            si.setClass(this, MainActivity.class);
+            si.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            String label = (t.title == null || t.title.isEmpty())
+                    ? Utils.hostOf(t.url) : t.title;
+            if (label == null || label.isEmpty()) label = getString(R.string.app_name);
+            ShortcutInfo info = new ShortcutInfo.Builder(this,
+                    "home_" + String.valueOf(t.url.hashCode()))
+                    .setShortLabel(label.length() > 24 ? label.substring(0, 24) : label)
+                    .setLongLabel(label)
+                    .setIntent(si)
+                    .setIcon(t.favicon != null && !t.favicon.isRecycled()
+                            ? Icon.createWithBitmap(t.favicon)
+                            : Icon.createWithResource(this, R.mipmap.ic_launcher))
+                    .build();
+            sm.requestPinShortcut(info, null);
+            toast(R.string.pin_requested);
+        } catch (Exception e) {
+            toast(R.string.pin_unsupported);
+        }
+    }
+
+    /** Weekly automatic filter-list refresh (can be disabled in Settings). */
+    private void maybeAutoUpdateLists() {
+        if (!FilterUpdater.dueForAutoUpdate(prefs)) return;
+        FilterUpdater.updateAll(this, prefs, updated -> {
+            if (updated > 0) {
+                adBlocker.reload(this, prefs);
+                CosmeticFilter.invalidate();
+            }
         });
     }
 
     // ---------- Tab switcher ----------
 
     private void showTabSwitcher() {
+        hideFindBar();
         Tab current = tabs.currentTab();
         if (current != null && !current.incognito && !isStartPage(current)) capturePreview(current);
         tabsAdapter.notifyDataSetChanged();
@@ -901,6 +1238,26 @@ public class MainActivity extends AppCompatActivity {
         CookieManager.getInstance().flush();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Settings may have changed while we were away: text zoom applies live
+        // to every tab, and a filter-list download (possibly completed in the
+        // Settings screen) reloads the network blocklist without a restart.
+        int tz = prefs.textZoom();
+        for (Tab t : tabs.tabs()) {
+            try {
+                t.webView.getSettings().setTextZoom(tz);
+            } catch (Exception ignored) {}
+        }
+        if (adBlocker.isReady() && prefs.listLastUpdate() > adBlocker.loadedAt()) {
+            adBlocker.reload(this, prefs);
+            CosmeticFilter.invalidate();
+        }
+        Tab t = tabs.currentTab();
+        if (t != null) updateChrome(t);
+    }
+
     // ---------- Downloads ----------
 
     private void startDownload(String url, String userAgent, String contentDisposition,
@@ -951,6 +1308,10 @@ public class MainActivity extends AppCompatActivity {
     public void onBackPressed() {
         if (fullscreenView != null) {
             exitFullscreen();
+            return;
+        }
+        if (findBar != null && findBar.getVisibility() == View.VISIBLE) {
+            hideFindBar();
             return;
         }
         if (tabSwitcher.getVisibility() == View.VISIBLE) {
