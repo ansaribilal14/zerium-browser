@@ -89,15 +89,34 @@ public class DownloadsActivity extends AppCompatActivity {
                 int idCol = c.getColumnIndexOrThrow(DownloadManager.COLUMN_ID);
                 int titleCol = c.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE);
                 int statusCol = c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS);
+                int totalCol = c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
+                int doneCol = c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
+                int reasonCol = c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON);
                 while (c.moveToNext()) {
                     Row r = new Row();
                     r.id = c.getLong(idCol);
                     r.title = c.getString(titleCol);
+                    long total = c.getLong(totalCol);
+                    long done = c.getLong(doneCol);
                     int st = c.getInt(statusCol);
-                    r.status = st == DownloadManager.STATUS_SUCCESSFUL ? getString(R.string.download_done)
-                            : st == DownloadManager.STATUS_FAILED ? getString(R.string.download_status_failed)
-                            : st == DownloadManager.STATUS_PAUSED ? getString(R.string.download_paused)
-                            : getString(R.string.download_running);
+                    switch (st) {
+                        case DownloadManager.STATUS_SUCCESSFUL:
+                            r.status = getString(R.string.download_done)
+                                    + (total > 0 ? " \u00b7 " + humanSize(total) : "");
+                            break;
+                        case DownloadManager.STATUS_FAILED:
+                            r.status = getString(R.string.download_status_failed)
+                                    + failureReason(c.getInt(reasonCol));
+                            break;
+                        case DownloadManager.STATUS_PAUSED:
+                            r.status = getString(R.string.download_paused)
+                                    + (total > 0 ? " \u00b7 " + percent(done, total) : "");
+                            break;
+                        default: // STATUS_RUNNING / STATUS_PENDING
+                            r.status = getString(R.string.download_running)
+                                    + (total > 0 ? " \u00b7 " + percent(done, total) : "");
+                            break;
+                    }
                     rows.add(r);
                     labels.add(r.title);
                 }
@@ -105,5 +124,37 @@ public class DownloadsActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
         adapter.notifyDataSetChanged();
         findViewById(R.id.empty).setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private static String percent(long done, long total) {
+        if (total <= 0) return "";
+        long pct = Math.min(100, done * 100 / total);
+        return " \u00b7 " + pct + "%";
+    }
+
+    private static String humanSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format(java.util.Locale.US, "%.1f KB", bytes / 1024f);
+        if (bytes < 1024L * 1024 * 1024) {
+            return String.format(java.util.Locale.US, "%.1f MB", bytes / 1048576f);
+        }
+        return String.format(java.util.Locale.US, "%.2f GB", bytes / 1073741824f);
+    }
+
+    /** Maps the common DownloadManager failure reasons to honest plain text. */
+    private String failureReason(int reason) {
+        switch (reason) {
+            case DownloadManager.ERROR_INSUFFICIENT_SPACE:
+                return " \u00b7 " + getString(R.string.download_reason_space);
+            case DownloadManager.ERROR_UNHANDLED_HTTP_CODE:
+            case DownloadManager.ERROR_HTTP_DATA_ERROR:
+                return " \u00b7 " + getString(R.string.download_reason_http);
+            case DownloadManager.ERROR_FILE_ERROR:
+            case DownloadManager.ERROR_FILE_ALREADY_EXISTS:
+            case DownloadManager.ERROR_CANNOT_RESUME:
+                return " \u00b7 " + getString(R.string.download_reason_file);
+            default:
+                return "";
+        }
     }
 }

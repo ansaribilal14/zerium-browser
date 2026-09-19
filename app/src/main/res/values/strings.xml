@@ -156,4 +156,43 @@
     <string name="clear_cache_title">Delete all site storage (localStorage and databases)?</string>
     <string name="about">About Zerium</string>
     <string name="about_body">Zerium Browser v%1$s\n\nA free and open-source privacy browser for Android, licensed under GPL-3.0. No accounts, no analytics, no ads of its own.\n\nEngine: Android System WebView\nBlocking: StevenBlack hosts (MIT) + curated element-hiding rules\n\nThis is an honest early release: some engine-level limitations apply and are documented in the repository README.</string>
+
+    <!-- v1.6.0: site panel -->
+    <string name="menu_site_settings">Site settings</string>
+    <string name="site_settings_title">Site settings · %1$s</string>
+    <string name="site_settings_js">JavaScript on this site</string>
+    <string name="site_settings_allow">Exempt from ad blocking</string>
+    <string name="site_settings_desktop">Load this site as Desktop site</string>
+    <string name="site_settings_hint">Per-site choices sit on top of the global settings and are remembered for future visits. Per-site cookie rules are not possible with the system WebView engine — use the global cookie switches in Privacy.</string>
+    <string name="site_saved">Site settings saved</string>
+    <string name="no_site_settings">Site settings are not available here</string>
+
+    <!-- v1.6.0: long-press context menu -->
+    <string name="ctx_open_new_tab">Open in new tab</string>
+    <string name="ctx_copy_link">Copy link address</string>
+    <string name="ctx_share_link">Share link</string>
+    <string name="ctx_download_image">Download image</string>
+    <string name="copied">Copied to clipboard</string>
+
+    <!-- v1.6.0: tab switcher -->
+    <string name="close_incognito_tabs">Close incognito</string>
+    <string name="no_incognito_tabs">No incognito tabs open</string>
+    <string name="incognito_tabs_closed">%1$d incognito tab(s) closed</string>
+
+    <!-- v1.6.0: gestures -->
+    <string name="gestures">Edge swipe to switch tabs</string>
+    <string name="gestures_sub">Swipe from the left or right screen edge to move between tabs. Page content that scrolls sideways always wins.</string>
+
+    <!-- v1.6.0: password autofill -->
+    <string name="password_autofill">Password autofill</string>
+    <string name="password_autofill_sub">Fill logins with your system password manager</string>
+    <string name="autofill_none">None set</string>
+    <string name="autofill_dialog_title">Password autofill</string>
+    <string name="autofill_dialog_body">Zerium never stores, reads or transmits your passwords. Filling is provided by the credential manager you enable at the Android system level (for example Bitwarden or KeePassDX); the WebView supports the Android autofill framework. Zerium only opens the system screen where you choose one.</string>
+    <string name="open_system_settings">Open system settings</string>
+
+    <!-- v1.6.0: downloads detail -->
+    <string name="download_reason_space">Not enough storage space</string>
+    <string name="download_reason_http">Server error</string>
+    <string name="download_reason_file">File error</string>
 </resources>

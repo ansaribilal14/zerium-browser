@@ -4,6 +4,8 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -34,6 +36,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
+import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -80,6 +83,13 @@ public class MainActivity extends AppCompatActivity {
     private static final int MENU_TRANSLATE = 15;
     private static final int MENU_PRINT = 16;
     private static final int MENU_PIN = 17;
+    private static final int MENU_SITE_SETTINGS = 18;
+
+    // Long-press context menu actions
+    private static final int CTX_OPEN_NEW_TAB = 1;
+    private static final int CTX_COPY = 2;
+    private static final int CTX_SHARE = 3;
+    private static final int CTX_DOWNLOAD_IMAGE = 4;
 
     private static final int REQ_FILE_CHOOSER = 41;
     private static final int REQ_PERMISSION = 42;
@@ -128,7 +138,16 @@ public class MainActivity extends AppCompatActivity {
         bookmarks = new BookmarksDB(this);
         history = new HistoryDB(this);
 
-        webContainer = findViewById(R.id.webContainer);
+        WebContainerLayout container = findViewById(R.id.webContainer);
+        container.setGestureListener(new WebContainerLayout.Listener() {
+            @Override
+            public void onSwitchPrevious() { cycleTab(-1); }
+
+            @Override
+            public void onSwitchNext() { cycleTab(1); }
+        });
+        container.setGesturesEnabled(prefs.gestures());
+        webContainer = container;
         swipe = findViewById(R.id.swipe);
         omnibox = findViewById(R.id.omnibox);
         btnSecurity = findViewById(R.id.btnSecurity);
@@ -253,6 +272,7 @@ public class MainActivity extends AppCompatActivity {
         });
         findViewById(R.id.btnSwitcherClose).setOnClickListener(v -> hideTabSwitcher());
         findViewById(R.id.btnCloseAllTabs).setOnClickListener(v -> closeAllTabs());
+        findViewById(R.id.btnCloseIncognito).setOnClickListener(v -> closeAllIncognitoTabs());
 
         restoreSession();
         handleIntent(getIntent());
@@ -353,6 +373,44 @@ public class MainActivity extends AppCompatActivity {
         openTab(null, false);
     }
 
+    /** Closes every incognito tab in one step (tab-switcher toolbar action). */
+    private void closeAllIncognitoTabs() {
+        int removed = 0;
+        int i = 0;
+        while (i < tabs.tabs().size()) {
+            Tab t = tabs.tabs().get(i);
+            if (t.incognito) {
+                webContainer.removeView(t.webView);
+                tabs.remove(t);
+                t.destroy();
+                removed++;
+            } else {
+                i++;
+            }
+        }
+        if (removed == 0) {
+            toast(R.string.no_incognito_tabs);
+            return;
+        }
+        if (tabs.count() == 0) {
+            openTab(null, false);
+        } else {
+            showCurrentWebView();
+            loadPending(tabs.currentTab());
+            updateChrome(tabs.currentTab());
+        }
+        tabsAdapter.notifyDataSetChanged();
+        toast(getString(R.string.incognito_tabs_closed, removed));
+    }
+
+    /** Edge-swipe tab cycling; direction -1 previous, 1 next. */
+    private void cycleTab(int dir) {
+        int n = tabs.count();
+        if (n < 2) return;
+        int idx = ((tabs.current() + dir) % n + n) % n;
+        switchTab(tabs.tabs().get(idx));
+    }
+
     // ---------- WebView setup ----------
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -401,6 +459,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         } catch (Exception ignored) {}
+
+        // Long-press on a link or image opens the context menu
+        // (open in new tab / copy / share / download).
+        w.setOnLongClickListener(v -> showLinkContextMenu(tab));
 
         // Force-zoom rewrites the page viewport meta so pinch zoom always works
         // (mirrors Firefox Focus "Always enable zoom" / Chrome "force enable zoom").
@@ -530,6 +592,21 @@ public class MainActivity extends AppCompatActivity {
             tab.url = url;
             tab.blockedOnPage = 0;
             tab.readerActive = false;
+            // Per-site JavaScript (site panel): enforce the effective value and
+            // reload once when a navigation lands on a host with a different
+            // rule than the tab currently runs (e.g. a link to another site).
+            String host = Utils.hostOf(url);
+            if (host != null && url != null && !url.startsWith("about:")) {
+                boolean effectiveJs = prefs.javascriptEnabled()
+                        && !Utils.siteListContains(prefs.jsOffSites(), host);
+                try {
+                    if (view.getSettings().getJavaScriptEnabled() != effectiveJs) {
+                        view.getSettings().setJavaScriptEnabled(effectiveJs);
+                        view.reload();
+                        return;
+                    }
+                } catch (Exception ignored) {}
+            }
             // Track the pre-translation URL for the View-original action. Links
             // inside a translated page stay on *.translate.goog, so a missing
             // exact source falls back to deriving it from the proxy URL.
@@ -729,6 +806,18 @@ public class MainActivity extends AppCompatActivity {
             if (tabs.currentTab() == tab) updateChrome(tab);
             return;
         }
+        // Per-site desktop memory (site panel): hosts remembered as Desktop
+        // load with the desktop UA from the very first request, so the site
+        // never sees the mobile UA at all. The translate proxy host is
+        // skipped — the memory belongs to the real site, not Google's proxy.
+        String loadHost = Utils.hostOf(url);
+        if (loadHost != null && !loadHost.endsWith(".translate.goog") && !tab.desktopMode
+                && Utils.siteListContains(prefs.desktopSites(), loadHost)) {
+            tab.desktopMode = true;
+            WebSettings ws = tab.webView.getSettings();
+            if (tab.mobileUA == null || tab.mobileUA.isEmpty()) tab.mobileUA = ws.getUserAgentString();
+            ws.setUserAgentString(desktopUA());
+        }
         Map<String, String> headers = new HashMap<>();
         if (prefs.privacyHeaders()) {
             headers.put("DNT", "1");
@@ -850,8 +939,10 @@ public class MainActivity extends AppCompatActivity {
                 .setEnabled(t != null && !isStartPage(t));
         pm.getMenu().add(0, MENU_SHARE, 12, R.string.menu_share);
         pm.getMenu().add(0, MENU_BLOCK_INFO, 13, R.string.menu_block_info);
-        pm.getMenu().add(0, MENU_SETTINGS, 14, R.string.menu_settings);
-        pm.getMenu().add(0, MENU_EXIT, 15, R.string.menu_exit);
+        pm.getMenu().add(0, MENU_SITE_SETTINGS, 14, R.string.menu_site_settings)
+                .setEnabled(t != null && !isStartPage(t));
+        pm.getMenu().add(0, MENU_SETTINGS, 15, R.string.menu_settings);
+        pm.getMenu().add(0, MENU_EXIT, 16, R.string.menu_exit);
         pm.setOnMenuItemClickListener(item -> {
             handleMenu(item.getItemId());
             return true;
@@ -906,6 +997,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case MENU_BLOCK_INFO: showBlockInfo(); break;
+            case MENU_SITE_SETTINGS: showSiteSettings(); break;
             case MENU_DESKTOP: toggleDesktop(); break;
             case MENU_READER: toggleReader(); break;
             case MENU_TRANSLATE: translatePage(); break;
@@ -946,9 +1038,187 @@ public class MainActivity extends AppCompatActivity {
         b.show();
     }
 
+    /**
+     * Per-site settings panel for the current host: JavaScript, ad-blocking
+     * exemption and Desktop-site memory. Everything is stored on top of the
+     * global settings; per-site cookie rules are deliberately not offered —
+     * the system WebView's CookieManager is global, so such a toggle could
+     * not be enforced honestly.
+     */
+    private void showSiteSettings() {
+        final Tab t = tabs.currentTab();
+        if (t == null || isStartPage(t)) return;
+        final String host = Utils.hostOf(t.url);
+        if (host == null || host.isEmpty() || host.endsWith(".translate.goog")
+                || host.equals("translate.goog")) {
+            toast(R.string.no_site_settings);
+            return;
+        }
+        final boolean jsOn = prefs.javascriptEnabled()
+                && !Utils.siteListContains(prefs.jsOffSites(), host);
+        final boolean exempt = Utils.siteListContains(prefs.allowlist(), host);
+        final boolean desktopRemembered = Utils.siteListContains(prefs.desktopSites(), host);
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(48, 24, 48, 0);
+        final CheckBox js = new CheckBox(this);
+        js.setText(R.string.site_settings_js);
+        js.setChecked(jsOn);
+        box.addView(js);
+        final CheckBox allow = new CheckBox(this);
+        allow.setText(R.string.site_settings_allow);
+        allow.setChecked(exempt);
+        box.addView(allow);
+        final CheckBox desk = new CheckBox(this);
+        desk.setText(R.string.site_settings_desktop);
+        desk.setChecked(desktopRemembered || t.desktopMode);
+        box.addView(desk);
+        TextView hint = new TextView(this);
+        hint.setText(R.string.site_settings_hint);
+        hint.setTextSize(12f);
+        box.addView(hint);
+
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.site_settings_title, host))
+                .setView(box)
+                .setPositiveButton(R.string.save, (d, w) -> {
+                    boolean changed = false;
+                    boolean needsReload = false;
+                    // JavaScript kill-list (only meaningful while global JS is on)
+                    if (js.isChecked() != jsOn) {
+                        prefs.setJsOffSites(js.isChecked()
+                                ? Utils.siteListRemove(prefs.jsOffSites(), host)
+                                : Utils.siteListAdd(prefs.jsOffSites(), host));
+                        boolean effectiveJs = prefs.javascriptEnabled()
+                                && !Utils.siteListContains(prefs.jsOffSites(), host);
+                        try {
+                            if (t.webView.getSettings().getJavaScriptEnabled() != effectiveJs) {
+                                t.webView.getSettings().setJavaScriptEnabled(effectiveJs);
+                                needsReload = true;
+                            }
+                        } catch (Exception ignored) {}
+                        changed = true;
+                    }
+                    // Blocking exemption (allowlist) — no reload needed; the
+                    // network layer consults it on every request.
+                    if (allow.isChecked() != exempt) {
+                        prefs.setAllowlist(allow.isChecked()
+                                ? Utils.siteListAdd(prefs.allowlist(), host)
+                                : Utils.siteListRemove(prefs.allowlist(), host));
+                        adBlocker.rebuildAllowlist(prefs.allowlist());
+                        changed = true;
+                    }
+                    // Desktop memory — applied to this tab immediately and to
+                    // every future load of this host (the per-tab menu toggle
+                    // stays ephemeral, exactly as documented since v1.5.0).
+                    if (desk.isChecked() != (desktopRemembered || t.desktopMode)) {
+                        prefs.setDesktopSites(desk.isChecked()
+                                ? Utils.siteListAdd(prefs.desktopSites(), host)
+                                : Utils.siteListRemove(prefs.desktopSites(), host));
+                        t.desktopMode = desk.isChecked();
+                        WebSettings s = t.webView.getSettings();
+                        if (t.desktopMode) {
+                            if (t.mobileUA == null || t.mobileUA.isEmpty()) {
+                                t.mobileUA = s.getUserAgentString();
+                            }
+                            s.setUserAgentString(desktopUA());
+                        } else {
+                            s.setUserAgentString(t.mobileUA != null && !t.mobileUA.isEmpty()
+                                    ? t.mobileUA : WebSettings.getDefaultUserAgent(this));
+                        }
+                        needsReload = true;
+                        changed = true;
+                    }
+                    if (needsReload) t.webView.reload();
+                    if (changed) toast(R.string.site_saved);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * Long-press context menu on links and images. For image-anchored links
+     * the WebView only reports the link target synchronously, so the menu
+     * acts on the link (never on the image behind it — that is an honest
+     * platform limit, no async hit-test hacks). Non-http targets (mailto:,
+     * javascript:) can be copied and shared but never opened or downloaded.
+     */
+    private boolean showLinkContextMenu(Tab tab) {
+        if (tabSwitcher.getVisibility() == View.VISIBLE) return false;
+        WebView.HitTestResult r;
+        try {
+            r = tab.webView.getHitTestResult();
+        } catch (Exception e) {
+            return false;
+        }
+        if (r == null) return false;
+        final String url = r.getExtra();
+        if (url == null || url.isEmpty()) return false;
+        int type = r.getType();
+        boolean link = type == WebView.HitTestResult.SRC_ANCHOR_TYPE
+                || type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE;
+        boolean image = type == WebView.HitTestResult.IMAGE_TYPE;
+        if (!link && !image) return false;
+        boolean http = url.startsWith("http://") || url.startsWith("https://");
+
+        java.util.List<String> items = new java.util.ArrayList<>();
+        java.util.List<Integer> actions = new java.util.ArrayList<>();
+        if (link) {
+            if (http) {
+                items.add(getString(R.string.ctx_open_new_tab));
+                actions.add(CTX_OPEN_NEW_TAB);
+            }
+            items.add(getString(R.string.ctx_copy_link));
+            actions.add(CTX_COPY);
+            items.add(getString(R.string.ctx_share_link));
+            actions.add(CTX_SHARE);
+        } else { // plain image
+            if (http) {
+                items.add(getString(R.string.ctx_open_new_tab));
+                actions.add(CTX_OPEN_NEW_TAB);
+                items.add(getString(R.string.ctx_download_image));
+                actions.add(CTX_DOWNLOAD_IMAGE);
+            }
+            items.add(getString(R.string.ctx_copy_link));
+            actions.add(CTX_COPY);
+        }
+        if (items.isEmpty()) return false;
+
+        new AlertDialog.Builder(this)
+                .setItems(items.toArray(new String[0]), (d, which) -> {
+                    switch (actions.get(which)) {
+                        case CTX_OPEN_NEW_TAB:
+                            openTab(url, false);
+                            break;
+                        case CTX_COPY: {
+                            ClipboardManager cm =
+                                    (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (cm != null) {
+                                cm.setPrimaryClip(ClipData.newPlainText("link", url));
+                                toast(R.string.copied);
+                            }
+                            break;
+                        }
+                        case CTX_SHARE: {
+                            Intent si = new Intent(Intent.ACTION_SEND);
+                            si.setType("text/plain");
+                            si.putExtra(Intent.EXTRA_TEXT, url);
+                            startActivity(Intent.createChooser(si, getString(R.string.menu_share)));
+                            break;
+                        }
+                        case CTX_DOWNLOAD_IMAGE:
+                            startDownload(url, tab.webView.getSettings().getUserAgentString(),
+                                    null, null, 0);
+                            break;
+                    }
+                })
+                .show();
+        return true;
+    }
+
     private void showFindBar() {
         if (tabs.currentTab() == null) return;
-        findBar.setVisibility(View.VISIBLE);
         findInput.setText("");
         findCount.setText("0/0");
         findInput.requestFocus();
@@ -1245,6 +1515,7 @@ public class MainActivity extends AppCompatActivity {
         // Settings may have changed while we were away: text zoom applies live
         // to every tab, and a filter-list download (possibly completed in the
         // Settings screen) reloads the network blocklist without a restart.
+        ((WebContainerLayout) webContainer).setGesturesEnabled(prefs.gestures());
         int tz = prefs.textZoom();
         for (Tab t : tabs.tabs()) {
             try {

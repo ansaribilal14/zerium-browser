@@ -65,6 +65,25 @@ public class Prefs {
     public int textZoom() { return sp.getInt("text_zoom", 100); }
     public void textZoom(int v) { sp.edit().putInt("text_zoom", v).apply(); }
 
+    // Gestures
+    /** Edge-swipe tab switching (WebContainerLayout). */
+    public boolean gestures() { return sp.getBoolean("edge_gestures", true); }
+    public void gestures(boolean v) { sp.edit().putBoolean("edge_gestures", v).apply(); }
+
+    // Per-site overrides (newline-separated hosts; see Utils.siteList*)
+    /**
+     * Hosts where JavaScript is switched off while it is on globally. With
+     * global JavaScript off this list has no effect — the list is a kill
+     * switch, not an allowlist (WebView cannot express "JS on for one host
+     * only" while it is globally disabled).
+     */
+    public String jsOffSites() { return sp.getString("js_off_sites", ""); }
+    public void setJsOffSites(String v) { sp.edit().putString("js_off_sites", v == null ? "" : v).apply(); }
+
+    /** Hosts that always load with the desktop user agent. */
+    public String desktopSites() { return sp.getString("desktop_sites", ""); }
+    public void setDesktopSites(String v) { sp.edit().putString("desktop_sites", v == null ? "" : v).apply(); }
+
     // Filter list bookkeeping
     public boolean autoUpdateLists() { return sp.getBoolean("auto_update_lists", true); }
     public void autoUpdateLists(boolean v) { sp.edit().putBoolean("auto_update_lists", v).apply(); }

@@ -191,4 +191,39 @@ public final class Utils {
         } catch (Exception ignored) {}
         return out;
     }
+
+    // ---------- Site lists (newline-separated lowercase hosts) ----------
+    // Used by the per-site settings panel (JavaScript off-list, desktop-memory
+    // list) and the blocking allowlist. Comparison is case-insensitive and
+    // exact-host: subdomains must be listed separately, which keeps an entry
+    // from silently covering hosts the user never typed.
+
+    public static boolean siteListContains(String list, String host) {
+        if (list == null || list.isEmpty() || host == null || host.isEmpty()) return false;
+        String h = host.toLowerCase();
+        for (String entry : list.split("\n")) {
+            if (entry.trim().toLowerCase().equals(h)) return true;
+        }
+        return false;
+    }
+
+    public static String siteListAdd(String list, String host) {
+        if (host == null || host.isEmpty()) return list;
+        String h = host.toLowerCase();
+        if (siteListContains(list, h)) return list;
+        return list == null || list.trim().isEmpty() ? h : list.trim() + "\n" + h;
+    }
+
+    public static String siteListRemove(String list, String host) {
+        if (list == null || list.isEmpty() || host == null) return list;
+        String h = host.toLowerCase();
+        StringBuilder out = new StringBuilder();
+        for (String entry : list.split("\n")) {
+            String e = entry.trim().toLowerCase();
+            if (e.isEmpty() || e.equals(h)) continue;
+            if (out.length() > 0) out.append('\n');
+            out.append(e);
+        }
+        return out.toString();
+    }
 }

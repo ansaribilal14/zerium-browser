@@ -1,6 +1,7 @@
 package com.zerium.browser;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -113,6 +114,12 @@ public class SettingsActivity extends AppCompatActivity {
             ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
         });
 
+        // Password autofill: Zerium stores nothing itself — filling is done by
+        // whatever credential manager the user enables at the system level.
+        // This row only surfaces the status and opens the system screen.
+        findViewById(R.id.rowAutofill).setOnClickListener(v -> showAutofillDialog());
+        updateAutofillStatus();
+
         // Behaviour
         bindSwitch(R.id.swPullRefresh, prefs.pullToRefresh(), (View.OnClickListener) v -> {
             boolean val = !prefs.pullToRefresh();
@@ -127,6 +134,11 @@ public class SettingsActivity extends AppCompatActivity {
         bindSwitch(R.id.swAutoplay, prefs.mediaAutoplay(), (View.OnClickListener) v -> {
             boolean val = !prefs.mediaAutoplay();
             prefs.mediaAutoplay(val);
+            ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
+        });
+        bindSwitch(R.id.swGestures, prefs.gestures(), (View.OnClickListener) v -> {
+            boolean val = !prefs.gestures();
+            prefs.gestures(val);
             ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
         });
 
@@ -446,6 +458,48 @@ public class SettingsActivity extends AppCompatActivity {
                 Toast.makeText(this, getString(R.string.lists_failed), Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    /** Reads the system autofill service (Settings.Secure.AUTOFILL_SERVICE). */
+    private void updateAutofillStatus() {
+        TextView value = findViewById(R.id.valueAutofill);
+        String status = getString(R.string.autofill_none);
+        try {
+            String svc = android.provider.Settings.Secure.getString(
+                    getContentResolver(), android.provider.Settings.Secure.AUTOFILL_SERVICE);
+            if (svc != null && !svc.isEmpty()) {
+                int slash = svc.indexOf('/');
+                status = slash > 0 ? svc.substring(0, slash) : svc;
+            }
+        } catch (Exception ignored) {}
+        value.setText(status);
+    }
+
+    private void showAutofillDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.autofill_dialog_title)
+                .setMessage(R.string.autofill_dialog_body)
+                .setPositiveButton(R.string.open_system_settings, (d, w) -> {
+                    try {
+                        // Opens the system autofill picker (API 26+); falls
+                        // back to the main settings screen when unavailable.
+                        startActivity(new Intent(
+                                android.provider.Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE));
+                    } catch (Exception e) {
+                        try {
+                            startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+                        } catch (Exception ignored) {}
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Coming back from the system autofill screen, refresh the status.
+        updateAutofillStatus();
     }
 
     private void confirm(int titleRes, Runnable action) {
