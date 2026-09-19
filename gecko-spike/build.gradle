@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Zerium Browser — GeckoView Phase-0 spike (see docs/GECKOVIEW_SPIKE.md).
+//
+// This module is a compile-and-run proof, NOT the shipped browser. It lives
+// in its own Gradle module so the production :app module cannot depend on
+// it, its APK is never signed or published, and the release pipeline keeps
+// building :app exactly as before. CI compiles it in a separate non-gating
+// job to prove the GeckoView toolchain resolves and builds.
+
+android {
+    namespace 'com.zerium.browser.gecko.spike'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.zerium.browser.gecko.spike"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "0.1.0-spike"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+// GeckoView 140 ESR line from Mozilla's own Maven repository.
+// Pin a full build timestamp so builds are reproducible.
+dependencies {
+    implementation 'org.mozilla.geckoview:geckoview:140.0.20250630155423'
+}

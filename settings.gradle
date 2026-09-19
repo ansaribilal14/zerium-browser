@@ -11,8 +11,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // GeckoView (Phase-0 spike module only; the shipped :app has no
+        // dependency on this repository or on the Gecko engine).
+        maven { url "https://maven.mozilla.org/maven2" }
     }
 }
 
 rootProject.name = "Zerium Browser"
 include ':app'
+include ':gecko-spike'
