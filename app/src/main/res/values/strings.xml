@@ -210,7 +210,6 @@
     <string name="delete_data_site_data">Cookies and site data</string>
     <string name="delete_data_cache">Cached images and files</string>
     <string name="delete_data_done">Selected browsing data deleted</string>
-    <string name="delete">Delete</string>
 
     <!-- Start page privacy stats (honest estimates, Brave formula) -->
     <string name="stats_title">Privacy Stats</string>
