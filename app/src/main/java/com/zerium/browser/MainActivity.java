@@ -400,7 +400,8 @@ public class MainActivity extends AppCompatActivity {
             updateChrome(tabs.currentTab());
         }
         tabsAdapter.notifyDataSetChanged();
-        toast(getString(R.string.incognito_tabs_closed, removed));
+        Toast.makeText(this, getString(R.string.incognito_tabs_closed, removed),
+                Toast.LENGTH_SHORT).show();
     }
 
     /** Edge-swipe tab cycling; direction -1 previous, 1 next. */

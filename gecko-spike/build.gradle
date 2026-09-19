@@ -38,8 +38,11 @@ android {
     }
 }
 
-// GeckoView 140 ESR line from Mozilla's own Maven repository.
-// Pin a full build timestamp so builds are reproducible.
+// GeckoView 133 (Firefox 133) from Mozilla's own Maven repository.
+// Pinned to a full build timestamp for reproducibility, and to the newest
+// line whose androidx dependencies stay compatible with the project's
+// AGP 8.5.2 release toolchain (140+ pulls androidx.core 1.16.0, which
+// requires AGP 8.6+ — not worth touching the release pipeline for a spike).
 dependencies {
-    implementation 'org.mozilla.geckoview:geckoview:140.0.20250630155423'
+    implementation 'org.mozilla.geckoview:geckoview:133.0.20241209150345'
 }

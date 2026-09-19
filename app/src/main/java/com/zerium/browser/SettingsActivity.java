@@ -460,16 +460,15 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    /** Reads the system autofill service (Settings.Secure.AUTOFILL_SERVICE). */
+    /** Reads the system autofill state via AutofillManager (API 26+). */
     private void updateAutofillStatus() {
         TextView value = findViewById(R.id.valueAutofill);
         String status = getString(R.string.autofill_none);
         try {
-            String svc = android.provider.Settings.Secure.getString(
-                    getContentResolver(), android.provider.Settings.Secure.AUTOFILL_SERVICE);
-            if (svc != null && !svc.isEmpty()) {
-                int slash = svc.indexOf('/');
-                status = slash > 0 ? svc.substring(0, slash) : svc;
+            android.view.autofill.AutofillManager afm =
+                    getSystemService(android.view.autofill.AutofillManager.class);
+            if (afm != null && afm.hasEnabledAutofillServices()) {
+                status = getString(R.string.autofill_enabled);
             }
         } catch (Exception ignored) {}
         value.setText(status);

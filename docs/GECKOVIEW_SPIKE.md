@@ -10,7 +10,7 @@ A separate Gradle module, `:gecko-spike`, contains a minimal single-activity
 GeckoView harness:
 
 - `gecko-spike/build.gradle` — pins `org.mozilla.geckoview:geckoview`
-  (140 ESR line, full build timestamp for reproducibility) from Mozilla's own
+  (133 / Firefox 133, full build timestamp for reproducibility; 140+ currently pulls androidx.core 1.16.0 which would require AGP 8.6+ — not worth disturbing the release toolchain for a spike) from Mozilla's own
   Maven repository (`maven.mozilla.org`), which is added to the project
   repository list for this module only.
 - `gecko-spike/src/main/java/.../SpikeActivity.java` — creates a
