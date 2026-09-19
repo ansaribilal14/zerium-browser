@@ -40,7 +40,6 @@ import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -84,6 +83,11 @@ public class MainActivity extends AppCompatActivity {
     private static final int MENU_PRINT = 16;
     private static final int MENU_PIN = 17;
     private static final int MENU_SITE_SETTINGS = 18;
+    private static final int MENU_DELETE_DATA = 19;
+    private static final int MENU_BACK = 20;
+    private static final int MENU_FORWARD = 21;
+    private static final int MENU_RELOAD = 22;
+    private static final int MENU_SHARE_QA = 23;
 
     // Long-press context menu actions
     private static final int CTX_OPEN_NEW_TAB = 1;
@@ -921,39 +925,50 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
+    // ---------- Menu ----------
+
     private void showMenu(View anchor) {
-        PopupMenu pm = new PopupMenu(this, anchor);
         Tab t = tabs.currentTab();
-        pm.getMenu().add(0, MENU_NEW_TAB, 0, R.string.menu_new_tab);
-        pm.getMenu().add(0, MENU_NEW_INCOGNITO, 1, R.string.menu_new_incognito);
-        pm.getMenu().add(0, MENU_BOOKMARK_ADD, 2, isCurrentBookmarked()
-                ? R.string.menu_remove_bookmark : R.string.menu_add_bookmark);
-        pm.getMenu().add(0, MENU_BOOKMARKS, 3, R.string.menu_bookmarks);
-        pm.getMenu().add(0, MENU_HISTORY, 4, R.string.menu_history);
-        pm.getMenu().add(0, MENU_DOWNLOADS, 5, R.string.menu_downloads);
-        pm.getMenu().add(0, MENU_FIND, 6, R.string.menu_find);
-        pm.getMenu().add(0, MENU_DESKTOP, 7, R.string.menu_desktop)
-                .setCheckable(true).setChecked(t != null && t.desktopMode);
-        pm.getMenu().add(0, MENU_READER, 8, R.string.menu_reader)
-                .setEnabled(t != null && !isStartPage(t));
-        pm.getMenu().add(0, MENU_TRANSLATE, 9, isOnTranslatedPage(t)
-                ? R.string.menu_view_original : R.string.menu_translate)
-                .setEnabled(t != null && !isStartPage(t));
-        pm.getMenu().add(0, MENU_PRINT, 10, R.string.menu_print)
-                .setEnabled(t != null && !isStartPage(t));
-        pm.getMenu().add(0, MENU_PIN, 11, R.string.menu_pin)
-                .setEnabled(t != null && !isStartPage(t));
-        pm.getMenu().add(0, MENU_SHARE, 12, R.string.menu_share);
-        pm.getMenu().add(0, MENU_BLOCK_INFO, 13, R.string.menu_block_info);
-        pm.getMenu().add(0, MENU_SITE_SETTINGS, 14, R.string.menu_site_settings)
-                .setEnabled(t != null && !isStartPage(t));
-        pm.getMenu().add(0, MENU_SETTINGS, 15, R.string.menu_settings);
-        pm.getMenu().add(0, MENU_EXIT, 16, R.string.menu_exit);
-        pm.setOnMenuItemClickListener(item -> {
-            handleMenu(item.getItemId());
-            return true;
-        });
-        pm.show();
+        boolean onPage = t != null && !isStartPage(t);
+        java.util.List<MenuSheet.Entry> entries = new java.util.ArrayList<>();
+        // Quick actions (Brave-style circular row).
+        entries.add(MenuSheet.action(MENU_BACK, R.string.qa_back, R.drawable.ic_back,
+                t != null && t.webView.canGoBack()));
+        entries.add(MenuSheet.action(MENU_FORWARD, R.string.qa_forward, R.drawable.ic_forward,
+                t != null && t.webView.canGoForward()));
+        entries.add(MenuSheet.action(MENU_RELOAD, R.string.qa_refresh, R.drawable.ic_refresh, onPage));
+        entries.add(MenuSheet.action(MENU_SHARE_QA, R.string.qa_share, R.drawable.ic_share, onPage));
+        entries.add(MenuSheet.divider());
+        // Browsing
+        entries.add(MenuSheet.item(MENU_NEW_TAB, R.string.menu_new_tab, R.drawable.ic_plus));
+        entries.add(MenuSheet.item(MENU_NEW_INCOGNITO, R.string.menu_new_incognito, R.drawable.ic_incognito));
+        entries.add(MenuSheet.divider());
+        entries.add(MenuSheet.item(MENU_BOOKMARK_ADD, isCurrentBookmarked()
+                        ? R.string.menu_remove_bookmark : R.string.menu_add_bookmark,
+                R.drawable.ic_bookmark, onPage));
+        entries.add(MenuSheet.item(MENU_BOOKMARKS, R.string.menu_bookmarks, R.drawable.ic_bookmark));
+        entries.add(MenuSheet.item(MENU_HISTORY, R.string.menu_history, R.drawable.ic_history));
+        entries.add(MenuSheet.item(MENU_DOWNLOADS, R.string.menu_downloads, R.drawable.ic_download));
+        entries.add(MenuSheet.item(MENU_FIND, R.string.menu_find, R.drawable.ic_search, onPage));
+        entries.add(MenuSheet.divider());
+        // Page tools
+        entries.add(MenuSheet.check(MENU_DESKTOP, R.string.menu_desktop, R.drawable.ic_desktop,
+                t != null && t.desktopMode));
+        entries.add(MenuSheet.item(MENU_READER, R.string.menu_reader, R.drawable.ic_reader, onPage));
+        entries.add(MenuSheet.item(MENU_TRANSLATE, isOnTranslatedPage(t)
+                        ? R.string.menu_view_original : R.string.menu_translate,
+                R.drawable.ic_translate, onPage));
+        entries.add(MenuSheet.item(MENU_PRINT, R.string.menu_print, R.drawable.ic_print, onPage));
+        entries.add(MenuSheet.item(MENU_PIN, R.string.menu_pin, R.drawable.ic_download, onPage));
+        entries.add(MenuSheet.item(MENU_SITE_SETTINGS, R.string.menu_site_settings,
+                R.drawable.ic_globe, onPage));
+        entries.add(MenuSheet.item(MENU_BLOCK_INFO, R.string.menu_block_info, R.drawable.ic_shield));
+        entries.add(MenuSheet.divider());
+        // App
+        entries.add(MenuSheet.item(MENU_DELETE_DATA, R.string.menu_delete_data, R.drawable.ic_trash));
+        entries.add(MenuSheet.item(MENU_SETTINGS, R.string.menu_settings, R.drawable.ic_gear));
+        entries.add(MenuSheet.item(MENU_EXIT, R.string.menu_exit, R.drawable.ic_exit));
+        MenuSheet.show(this, entries, e -> handleMenu(e.id));
     }
 
     private boolean isOnTranslatedPage(Tab t) {
@@ -1013,7 +1028,72 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(this, SettingsActivity.class));
                 break;
             case MENU_EXIT: finishAffinity(); break;
+            case MENU_DELETE_DATA: deleteBrowsingData(); break;
+            case MENU_BACK: {
+                if (t != null && t.webView.canGoBack()) t.webView.goBack();
+                break;
+            }
+            case MENU_FORWARD: {
+                if (t != null && t.webView.canGoForward()) t.webView.goForward();
+                break;
+            }
+            case MENU_RELOAD: {
+                if (t != null && !isStartPage(t)) t.webView.reload();
+                break;
+            }
+            case MENU_SHARE_QA: {
+                if (t != null && !isStartPage(t)) {
+                    Intent qa = new Intent(Intent.ACTION_SEND);
+                    qa.setType("text/plain");
+                    qa.putExtra(Intent.EXTRA_TEXT, t.url);
+                    startActivity(Intent.createChooser(qa, getString(R.string.menu_share)));
+                }
+                break;
+            }
         }
+    }
+
+    /** Brave-style "Delete browsing data": history, cookies and WebView
+     *  caches. Honest scope: System WebView keeps ONE shared cookie jar,
+     *  so "cookies and site data" clears it globally (the documented
+     *  shared-jar limitation of the WebView edition — the GeckoView
+     *  edition's StorageController does not have this constraint). */
+    private void deleteBrowsingData() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad / 2, pad, 0);
+        CheckBox historyBox = new CheckBox(this);
+        historyBox.setText(R.string.delete_data_history);
+        historyBox.setChecked(true);
+        CheckBox siteBox = new CheckBox(this);
+        siteBox.setText(R.string.delete_data_site_data);
+        siteBox.setChecked(true);
+        CheckBox cacheBox = new CheckBox(this);
+        cacheBox.setText(R.string.delete_data_cache);
+        cacheBox.setChecked(true);
+        box.addView(historyBox);
+        box.addView(siteBox);
+        box.addView(cacheBox);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.delete_data_title)
+                .setView(box)
+                .setPositiveButton(R.string.delete, (d, w) -> {
+                    if (historyBox.isChecked()) new HistoryDB(this).clear();
+                    if (siteBox.isChecked()) {
+                        android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                        cm.removeAllCookies(null);
+                        cm.removeSessionCookies(null);
+                        cm.flush();
+                        android.webkit.WebStorage.getInstance().deleteAllData();
+                    }
+                    if (cacheBox.isChecked()) {
+                        for (Tab tab : tabs.tabs()) tab.webView.clearCache(true);
+                    }
+                    toast(R.string.delete_data_done);
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private void showBlockInfo() {

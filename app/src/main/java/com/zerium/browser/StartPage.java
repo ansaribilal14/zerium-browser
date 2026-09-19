@@ -140,9 +140,11 @@ public final class StartPage {
     public static String html(Context c, Prefs prefs) {
         String action = searchAction(prefs);
         long totalBlocked = prefs.totalBlocked();
-        String blockedText = totalBlocked > 0
-                ? totalBlocked + " ads and trackers blocked so far"
-                : "Blocking enabled from your first page load";
+        String blockedFmt = String.format(java.util.Locale.US, "%,d", totalBlocked);
+        // Honest estimates (Brave's conservative formula): ≈50 KB and ≈50 ms
+        // per blocked request, computed on-device.
+        String dataSaved = humanBytes(totalBlocked * 50L * 1024L);
+        String timeSaved = humanTime(totalBlocked * 50L);
         String version = versionName(c);
 
         StringBuilder sb = new StringBuilder();
@@ -184,14 +186,32 @@ public final class StartPage {
           .append("border-radius:20px;text-decoration:none;color:var(--fg);font-size:12px;")
           .append("box-shadow:0 2px 10px rgba(20,25,60,.05);transition:transform .1s,border-color .15s}")
           .append("a.tile:active{transform:scale(.96);border-color:var(--accent)}")
-          .append(".ic{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;")
-          .append("justify-content:center;color:#fff;font-size:19px;font-weight:700}")
-          // Stat card
-          .append(".stat{margin-top:30px;width:100%;max-width:580px;display:flex;align-items:center;")
-          .append("gap:10px;background:var(--chip);border:1px solid var(--border);border-radius:18px;")
-          .append("padding:12px 16px;color:var(--muted);font-size:12.5px}")
-          .append(".dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent)}")
-          .append(".stat b{color:var(--fg);font-weight:600}")
+          .append(".ic{position:relative;width:44px;height:44px;border-radius:50%;overflow:hidden;")
+          .append("display:flex;align-items:center;justify-content:center;color:#fff;")
+          .append("font-size:19px;font-weight:700}")
+          .append(".ic img{position:absolute;inset:0;width:100%;height:100%;")
+          .append("object-fit:cover;background:#fff}")
+          // Privacy stats card
+          .append(".pstats{margin-top:30px;width:100%;max-width:580px;border-radius:20px;padding:16px 8px;")
+          .append("background:linear-gradient(135deg,rgba(67,85,185,.10),rgba(124,156,255,.10));")
+          .append("border:1px solid rgba(67,85,185,.14)}")
+          .append(".phead{display:flex;align-items:center;gap:8px;padding:0 14px 10px;font-size:13px;")
+          .append("color:var(--muted);font-weight:600}")
+          .append(".prow{display:flex}")
+          .append(".pcol{flex:1;text-align:center;padding:2px 6px}")
+          .append(".pnum{font-size:26px;font-weight:800}")
+          .append(".pnum.b{color:#e8710a}.pnum.d{color:#7c9cff}.pnum.t{color:#4355b9}")
+          .append(".plbl{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}")
+          // Suggestions dropdown
+          .append(".searchwrap{position:relative}")
+          .append(".sug{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);")
+          .append("border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 32px rgba(20,25,60,.12);")
+          .append("overflow:hidden;display:none;z-index:5;text-align:left}")
+          .append(".sug a{display:block;padding:11px 18px;font-size:14px;color:var(--fg);")
+          .append("text-decoration:none}.sug a:hover{background:var(--chip)}")
+          .append(".note{font-size:11px;color:var(--muted);opacity:.8;margin-top:8px;display:none}")
+          .append(".foot{margin-top:26px;font-size:11px;color:var(--muted);opacity:.8;text-align:center;")
+          .append("max-width:420px;line-height:1.5}")
           .append("</style></head><body>")
           .append("<div class='logo'>Zerium<b>.</b></div>")
           .append("<div class='tag'>Fast &middot; private &middot; open source</div>")
@@ -199,21 +219,35 @@ public final class StartPage {
           .append("if(q){var t='").append(action).append("';")
           .append("location.href=t.replace('\\u0001ZERIUMQ\\u0001',encodeURIComponent(q));}")
           .append("return false;\">")
-          .append("<div class='search'>")
+          .append("<div class='searchwrap'><div class='search'>")
           .append("<svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor'")
           .append(" stroke-width='2.4' stroke-linecap='round'><circle cx='11' cy='11' r='7'/>")
           .append("<path d='M20 20l-3.6-3.6'/></svg>")
-          .append("<input id='q' type='search' placeholder='Search or type a URL' autocomplete='off' autofocus>")
+          .append("<input id='q' type='search' placeholder='Search or type a URL' autocomplete='off'>")
           .append("<button type='submit'>Go</button>")
+          .append("</div><div class='sug' id='sug'></div></div>")
+          .append("<div class='note' id='note'>")
+          .append(escHtml("Search suggestions come from DuckDuckGo only while you type here."))
           .append("</div></form>")
           .append("<div class='grid'>");
         for (Tile t : resolveTiles(c, prefs)) {
             sb.append(tile(t.icon, t.color, t.name, t.url));
         }
         sb.append("</div>")
-          .append("<div class='stat'><span class='dot'></span><span><b>")
-          .append(blockedText).append("</b> &middot; Zerium v")
-          .append(version).append(" &mdash; no telemetry, ever.</span></div>")
+          .append("<div class='pstats'>")
+          .append("<div class='phead'>\uD83D\uDEE1 ").append("Privacy Stats</div>")
+          .append("<div class='prow'>")
+          .append("<div class='pcol'><div class='pnum b'>").append(blockedFmt).append("</div>")
+          .append("<div class='plbl'>Trackers &amp; Ads Blocked</div></div>")
+          .append("<div class='pcol'><div class='pnum d'>").append(dataSaved).append("</div>")
+          .append("<div class='plbl'>Est. Data Saved</div></div>")
+          .append("<div class='pcol'><div class='pnum t'>").append(timeSaved).append("</div>")
+          .append("<div class='plbl'>Est. Time Saved</div></div>")
+          .append("</div></div>")
+          .append("<div class='foot'>Estimates: ≈50 KB and ≈50 ms saved per blocked request")
+          .append(" (Brave&#39;s conservative formula). Stored only on this device.")
+          .append(" &middot; Zerium v").append(version).append(" — no telemetry, ever.</div>")
+          .append(suggestionJs())
           .append("</body></html>");
         return sb.toString();
     }
@@ -225,7 +259,60 @@ public final class StartPage {
                 .replace("'", "&#39;").replace("\"", "&quot;");
         String safeIcon = icon == null ? "" : icon.replace("&", "&amp;")
                 .replace("<", "&lt;").replace(">", "&gt;");
+        // Favicon overlay: loads over the monogram glyph; removed on error so
+        // the letter shows through (SmartCookieWeb's fallback pattern).
+        String host = Utils.hostOf(url);
+        String fav = (host != null && !host.isEmpty() && safeUrl.startsWith("http"))
+                ? "<img src='https://" + host.replace("&", "&amp;").replace("'", "&#39;")
+                        + "/favicon.ico' loading='lazy' onerror=\"this.remove()\">"
+                : "";
         return "<a class='tile' href='" + safeUrl + "'><span class='ic' style='background:"
-                + color + "'>" + safeIcon + "</span>" + safeName + "</a>";
+                + color + "'>" + safeIcon + fav + "</span>" + safeName + "</a>";
+    }
+
+    /** DuckDuckGo typeahead for the start-page search box (only fires while
+     *  the user types there; fails silently offline). */
+    private static String suggestionJs() {
+        return "<script>(function(){var i=document.getElementById('q'),s=document.getElementById('sug'),"
+                + "n=document.getElementById('note'),t=null;"
+                + "if(!i||!s)return;"
+                + "function esc(x){return x.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}"
+                + "i.addEventListener('input',function(){var q=i.value.trim();clearTimeout(t);"
+                + "if(!q){s.style.display='none';n.style.display='none';return}"
+                + "t=setTimeout(function(){fetch('https://duckduckgo.com/ac/?q='+encodeURIComponent(q)+'&type=list')"
+                + ".then(function(r){return r.json()}).then(function(d){var list=(d&&d[1])||[];"
+                + "var h='';for(var k=0;k<list.length&&k<6;k++){h+='<a href=\"#\" data-q=\"'"
+                + "+esc(list[k])+'\">'+esc(list[k])+'</a>'}"
+                + "if(h){s.innerHTML=h;s.style.display='block';n.style.display='block'}"
+                + "else{s.style.display='none';n.style.display='none'}})"
+                + ".catch(function(){s.style.display='none';n.style.display='none'})},140)});"
+                + "s.addEventListener('click',function(e){var a=e.target.closest('a');if(!a)return;"
+                + "e.preventDefault();i.value=a.getAttribute('data-q');"
+                + "var f=i.closest('form');if(f)f.requestSubmit?f.requestSubmit():f.onsubmit({preventDefault:function(){}})})})()"
+                + "</script>";
+    }
+
+    private static String escHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    /** Honest estimate strings for the privacy-stats card. */
+    private static String humanBytes(long bytes) {
+        if (bytes <= 0) return "0 B";
+        if (bytes < 1024) return bytes + " B";
+        double kb = bytes / 1024.0;
+        if (kb < 1024) return String.format(java.util.Locale.US, "%.1f KB", kb);
+        double mb = kb / 1024.0;
+        if (mb < 1024) return String.format(java.util.Locale.US, "%.1f MB", mb);
+        return String.format(java.util.Locale.US, "%.1f GB", mb / 1024.0);
+    }
+
+    private static String humanTime(long ms) {
+        if (ms <= 0) return "0s";
+        if (ms < 60_000) return (ms / 1000) + "s";
+        long min = ms / 60_000;
+        if (min < 60) return min + "m";
+        return (min / 60) + "h";
     }
 }

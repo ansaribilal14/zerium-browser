@@ -44,6 +44,7 @@ The project follows three hard rules. First, **honesty over marketing**: every c
 - **Site settings panel** — per-site JavaScript, per-site ad-blocking exemption and per-site desktop-site memory for the host you are on; stated plainly in the panel itself, per-site cookie rules are not possible on the WebView engine.
 - **Password autofill** — delegated to the credential manager you enable at the Android system level (Bitwarden, KeePassDX, system providers); Zerium stores, reads and transmits no passwords and only surfaces the system autofill status.
 - **GeckoView Phase-0 spike** — a separate `:gecko-spike` module boots a real GeckoSession and compiles in CI (`docs/GECKOVIEW_SPIKE.md`); the shipped browser stays on the System WebView. Sync was evaluated honestly and deliberately not shipped (`docs/SYNC_EVALUATION.md`).
+- **Brave-style menu and start page** — the menu is a sectioned bottom sheet with a circular quick-action row (back / forward / refresh / share); the start page carries a three-metric **Privacy Stats** card (Trackers & Ads Blocked, Est. Data Saved, Est. Time Saved — Brave's conservative ≈50 KB + ≈50 ms per-block formula, computed on-device), favicon shortcut tiles with monogram fallback, and DuckDuckGo search suggestions while typing on the start page only; **Delete browsing data** (history, cookies/site data, caches) sits in the menu — the WebView cookie jar is shared engine-wide, so cookie clearing is global and stated as such.
 
 ## Releases & channels
 

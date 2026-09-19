@@ -10,6 +10,18 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
 - GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
 
+## [1.8.0] — 2026-09-19
+
+### Added
+- **Brave-style menu.** The old popup menu is a sectioned bottom sheet now: a circular quick-action row (back / forward / refresh / share), then icon sections for browsing (new/incognito tab, bookmark add/remove, bookmarks, history, downloads, find in page), page tools (desktop site, reader view, translate, print, add-to-home-screen, site settings, blocked-on-this-page) and app entries (Delete browsing data, Settings, Exit).
+- **Delete browsing data.** One dialog with three checkboxes — browsing history, cookies and site data, cached images and files — clearing the WebView cookie jar, web storage and every open tab's cache. Honest scope note in the dialog's code and docs: the system WebView keeps one shared cookie jar, so cookie clearing is global (the GeckoView edition does not share this constraint).
+- **Privacy Stats card on the start page.** Three metrics in the Brave style — Trackers & Ads Blocked, Est. Data Saved, Est. Time Saved — using Brave's published conservative formula (≈50 KB and ≈50 ms per blocked request), computed on-device from the existing block counter and labelled "Est.".
+- **Search suggestions on the start page.** While you type in the start page's search box, suggestions come from DuckDuckGo's suggestion endpoint (capped at six, requested only while typing there, fails silently offline — nothing fires in the omnibox or anywhere else).
+- **Favicon shortcut tiles.** Start-page tiles now try the site's favicon over the colored monogram glyph and fall back to the monogram when the icon is missing (SmartCookieWeb's established fallback pattern).
+
+### Changed
+- The start page no longer pops the keyboard open on every new tab (Brave behavior); the search field keeps focus behavior on tap.
+
 ## [1.7.0] — 2026-09-19
 
 ### Changed
