@@ -163,9 +163,13 @@ public class MainActivity extends AppCompatActivity {
         tabsGrid = findViewById(R.id.tabsGrid);
 
         fullscreenContainer = new FrameLayout(this);
+        fullscreenContainer.setBackgroundColor(0xFF000000);
         addContentView(fullscreenContainer, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         fullscreenContainer.setVisibility(View.GONE);
+
+        // Soft M3 refresh indicator, tinted with the active primary.
+        swipe.setColorSchemeColors(ContextCompat.getColor(this, R.color.primary));
 
         btnSecurity.setOnClickListener(v -> showSecurityInfo());
         btnRefresh.setOnClickListener(v -> {
@@ -890,7 +894,8 @@ public class MainActivity extends AppCompatActivity {
         btnForward.setEnabled(tab.webView.canGoForward());
         btnBack.setAlpha(tab.webView.canGoBack() ? 1f : 0.4f);
         btnForward.setAlpha(tab.webView.canGoForward() ? 1f : 0.4f);
-        btnTabs.setText(String.valueOf(tabs.count()));
+        int n = tabs.count();
+        btnTabs.setText(n > 99 ? "99+" : String.valueOf(n));
     }
 
     /** Scheme stripped for display; the security icon already carries TLS state. */

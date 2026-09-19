@@ -81,6 +81,14 @@ public class DownloadsActivity extends AppCompatActivity {
         reload();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Downloads started/finished elsewhere (system notifications) —
+        // refresh sizes, progress and statuses when the screen reappears.
+        reload();
+    }
+
     private void reload() {
         rows.clear();
         labels.clear();

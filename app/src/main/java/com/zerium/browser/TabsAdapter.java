@@ -51,10 +51,9 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
             h.preview.setImageDrawable(null);
         }
         boolean current = tabs.indexOf(t) == manager.current();
-        int stroke = current
-                ? ContextCompat.getColor(h.itemView.getContext(), R.color.accent)
-                : ContextCompat.getColor(h.itemView.getContext(), R.color.border);
-        h.card.setStrokeWidth(current ? 4 : 1);
+        int stroke = ContextCompat.getColor(h.itemView.getContext(),
+                current ? R.color.primary : R.color.primary);
+        h.card.setStrokeWidth(current ? 3 : 0);
         h.card.setStrokeColor(stroke);
         h.itemView.setOnClickListener(v -> listener.onOpen(t));
         h.close.setOnClickListener(v -> listener.onClose(t));

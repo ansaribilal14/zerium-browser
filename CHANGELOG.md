@@ -10,6 +10,16 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
 - GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
 
+## [1.7.0] — 2026-09-19
+
+### Changed
+- **Material 3 soft-UI overhaul.** The whole interface moves to a tonal, rounded design language: a complete M3 color-role palette (primary/secondary/tertiary containers, surfaceContainer tiers, outline variants) in light and dark, a soft shape system (16/20/28 dp component radii, a 26 dp pill omnibox, 24 dp elevation-less tonal cards, 22 dp tab cards, tonal toolbars and bars), a primary-tinted pull-to-refresh indicator, and a softened start page (pill search field, rounded tiles, calm shadows). Dynamic color on Android 12+ still personalizes the theme; the static tonal palette covers everything else. Status-bar and navigation-bar colors follow the tonal surfaces with matching light/dark icons.
+
+### Fixed
+- The tab-count badge now caps at "99+" instead of overflowing its pill.
+- Fullscreen video renders over an opaque black backdrop instead of transparent leftovers.
+- The Downloads screen refreshes sizes, progress and statuses whenever it reappears (it previously froze at what was loaded on first open).
+
 ## [1.6.0] — 2026-09-19
 
 ### Added
