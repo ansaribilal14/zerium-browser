@@ -2,6 +2,8 @@
 
 **Question:** *Can we migrate Zerium's existing browser layer to GeckoView while preserving everything we've already built — without a full Chromium fork?*
 
+**Status update (v1.6.0):** Phase 0 is done — the `:gecko-spike` module exists in this repository, compiles in CI as a separate non-gating job, and boots a real GeckoSession. See [`GECKOVIEW_SPIKE.md`](GECKOVIEW_SPIKE.md). Everything below remains the assessment of what a real migration would take.
+
 **Short answer: yes.** GeckoView is precisely the "no Chromium fork" route: it is Mozilla's production Gecko engine shipped as a prebuilt Android library (a Maven AAR, consumed like any dependency — no source checkout, no 100 GB build farm, CI stays feasible). But it is **not a drop-in swap**. The app layer of Zerium ports almost untouched; the engine wrapper layer (everything that touches `WebView` directly) must be rewritten against GeckoView's delegate model. This document is the honest, file-by-file assessment, the full API mapping, the costs, and a phased plan.
 
 ---

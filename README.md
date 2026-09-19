@@ -31,16 +31,19 @@ The project follows three hard rules. First, **honesty over marketing**: every c
 - **Cosmetic filtering** — 1,200 sanitized element-hiding selectors (a validated EasyList generic-hide subset, CC-BY-SA-3.0, with curated additions) are injected at document start on supporting WebViews, so ad containers are hidden before the page first paints; a debounced MutationObserver keeps hiding dynamically inserted ads.
 - **YouTube ad suppression** — modeled on uBlock Origin's actively maintained YouTube scriptlets: ad structures are pruned from player responses *before the player parses them*, so most ads are never scheduled and never show up (the closest a WebView can get to Brave's aggressive-mode "block" behavior); any remaining skip buttons are clicked the instant they appear; a strictly-scoped fallback finishes unskippable in-stream ads muted and fast-forwarded, then restores your exact playback rate — overlay ads and normal playback are never touched. On by default, with a Settings toggle. See `docs/CONTENT_BLOCKING.md` for the honest scope.
 - **Live transparency** — menu shows blocked counts; the padlock icon and connection dialog explain HTTPS status; a per-site allowlist exempts chosen domains.
-- **Tabs** — multi-tab browsing with a grid switcher showing live page previews, incognito tabs that skip history and bookmarks, and session restore across restarts.
+- **Tabs** — multi-tab browsing with a grid switcher showing live page previews, incognito tabs that skip history and bookmarks, one-tap "Close incognito" bulk action, edge-swipe tab switching, and session restore across restarts.
 - **Privacy controls** — third-party cookie blocking (on by default), optional global cookie/JavaScript switches, Do Not Track + Global Privacy Control headers, algorithmic darkening, one-tap data clearing (history, cookies, site storage).
-- **Real browser plumbing** — omnibox with smart URL/search detection, built-in plus custom search engines, bookmarks and history (SQLite), system DownloadManager integration, file upload support, camera/microphone permission prompts, geolocation prompts, SSL error warnings, find-in-page, share targets, full-screen video, Material You dynamic theming with system/light/dark modes.
+- **Real browser plumbing** — omnibox with smart URL/search detection, built-in plus custom search engines, bookmarks and history (SQLite), system DownloadManager integration with a downloads screen showing sizes, progress and failure reasons, file upload support, camera/microphone permission prompts, geolocation prompts, SSL error warnings, find-in-page, share targets, long-press link/image menus (open in new tab, copy, share, download), full-screen video, Material You dynamic theming with system/light/dark modes.
 - **Reader view** — clean, theme-aware article rendering powered by Mozilla Readability (Apache-2.0), with byline and estimated reading time; the original page is restored exactly on toggle-off and nothing is re-fetched.
 - **Desktop site, per tab** — desktop user agent derived from the device's own WebView engine version (never a stale hardcoded one), with one-tap toggle and reload.
 - **Translate page** — one-tap full-page translation through Google's `translate.goog` proxy in the same tab, no API key, with a View-original way back.
 - **Print / Save as PDF & Add to home screen** — the Android printing framework renders the page (the print dialog offers Save as PDF); any site can be pinned to your launcher with its favicon.
 - **HTTPS-first upgrades** — main-frame `http://` navigations are upgraded to `https://` automatically (local addresses skipped); certificate failures still raise an explicit dialog.
 - **Filter list updates** — the hosts blocklist and the cosmetic rules refresh themselves about once a week (or on demand from Settings) with validated, atomically swapped downloads that apply without a restart.
-- **Personal tuning** — web text size (50–200%, applied live), force-enable zoom, media autoplay control, pull-to-refresh toggle, custom start-page shortcut tiles (automatic most-visited or your own list), and a one-tap "Allow this site" exemption in the blocking dialog.
+- **Personal tuning** — web text size (50–200%, applied live), force-enable zoom, media autoplay control, pull-to-refresh toggle, edge-swipe gesture toggle, custom start-page shortcut tiles (automatic most-visited or your own list), and a one-tap "Allow this site" exemption in the blocking dialog.
+- **Site settings panel** — per-site JavaScript, per-site ad-blocking exemption and per-site desktop-site memory for the host you are on; stated plainly in the panel itself, per-site cookie rules are not possible on the WebView engine.
+- **Password autofill** — delegated to the credential manager you enable at the Android system level (Bitwarden, KeePassDX, system providers); Zerium stores, reads and transmits no passwords and only surfaces the system autofill status.
+- **GeckoView Phase-0 spike** — a separate `:gecko-spike` module boots a real GeckoSession and compiles in CI (`docs/GECKOVIEW_SPIKE.md`); the shipped browser stays on the System WebView. Sync was evaluated honestly and deliberately not shipped (`docs/SYNC_EVALUATION.md`).
 
 ## Releases & channels
 
@@ -66,6 +69,8 @@ Each release provides a **signed release APK** (recommended) and a **debug APK**
 |----------|----------|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Engine decision matrix — why v1 ships on System WebView and what GeckoView/Chromium-fork tracks would change |
 | [`docs/GECKOVIEW_MIGRATION.md`](docs/GECKOVIEW_MIGRATION.md) | Full GeckoView migration assessment — what ports untouched, what gets rewritten (API-by-API), costs, and a phased no-Chromium-fork plan |
+| [`docs/GECKOVIEW_SPIKE.md`](docs/GECKOVIEW_SPIKE.md) | The Phase-0 spike module: what it proves, how to build it, what it deliberately is not |
+| [`docs/SYNC_EVALUATION.md`](docs/SYNC_EVALUATION.md) | Why sync is not shipped and what the honest serverless alternative is |
 | [`docs/CONTENT_BLOCKING.md`](docs/CONTENT_BLOCKING.md) | The three blocking layers, YouTube suppression scope, and why network-level in-stream removal is impossible on WebView |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | What Zerium does and does not collect (short version: nothing) |
 | [`docs/BUILD.md`](docs/BUILD.md) | Toolchain requirements, release signing, CI internals |
@@ -85,13 +90,13 @@ Zerium v1 uses the **Android System WebView** engine. That is a deliberate, docu
 
 ## Roadmap
 
-1. **GeckoView engine track** — evaluate Mozilla GeckoView as an alternative engine build flavor, which brings real WebExtensions support (including uBlock Origin-class blockers) and per-profile cookie isolation. Assessment delivered in `docs/GECKOVIEW_MIGRATION.md`; next step is the Phase-0 spike.
-2. Per-site toggles (JavaScript, cookies) with a site panel; per-site desktop-mode memory.
+1. **GeckoView engine track** — Phase-0 spike shipped and green in CI (`:gecko-spike`, `docs/GECKOVIEW_SPIKE.md`); full plan in `docs/GECKOVIEW_MIGRATION.md`, real WebExtensions and per-profile cookie isolation become possible after the decision gate.
+2. Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest serverless alternative to sync.
 3. Custom filter syntax (subset of EasyList element hiding) and domain-qualified cosmetic rules.
 4. WebView Profiles API for true incognito isolation (API level permitting).
 5. Reproducible release signing documentation.
 
-(Shipped in v1.5.0: HTTPS-first main-frame upgrades, reader view, translate, print, custom engines, automatic list updates.)
+(Shipped in v1.5.0: HTTPS-first main-frame upgrades, reader view, translate, print, custom engines, automatic list updates. Shipped in v1.6.0: site settings panel, long-press context menus, edge-swipe tab switching, password-autofill status, downloads detail, GeckoView Phase-0 spike, sync evaluation.)
 
 ## Building from source
 
@@ -108,6 +113,7 @@ Full toolchain requirements are in [`docs/BUILD.md`](docs/BUILD.md). CI builds b
 ```
 app/src/main/java/com/zerium/browser/    Browser engine, UI, blocking, storage
 app/src/main/assets/blocklists/          Bundled hosts list + cosmetic selectors
+gecko-spike/                             GeckoView Phase-0 spike module (not shipped; docs/GECKOVIEW_SPIKE.md)
 docs/                                    Architecture, blocking scope, privacy, build, research
 .github/workflows/build.yml              CI: build, sign, checksums, release publication
 .github/scripts/publish_release.sh       Release notes generation + two-channel publishing

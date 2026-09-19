@@ -12,6 +12,7 @@
 
 - History and bookmarks live in local SQLite databases inside the app sandbox. Clearing is one tap and is unrecoverable.
 - Settings persist in `SharedPreferences` in the app sandbox.
+- **Passwords:** Zerium stores, reads and transmits no passwords (`setSavePassword` is disabled globally). Login filling is delegated entirely to the credential manager the user enables at the Android system level (Android autofill framework, API 26+) — for example Bitwarden or KeePassDX. Settings → *Password autofill* only reads the name of the currently enabled system service and opens the system screen where you choose one; it never receives credentials.
 - Incognito tabs skip history, bookmarks, and the all-time blocked counter, and `savePassword` is disabled globally. Known limitation (stated in the README): the system WebView shares one cookie jar, so incognito cookies are not yet isolated from normal tabs; closing data or clearing cookies in Settings affects the jar globally. True per-profile isolation is the first item of the privacy roadmap (WebView Profiles API / GeckoView track).
 - The session-restore snapshot (up to 10 URLs) is stored locally only and is never synced anywhere.
 

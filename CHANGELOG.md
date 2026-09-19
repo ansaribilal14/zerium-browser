@@ -7,8 +7,27 @@ Stable builds are published as immutable releases on version tags (see [Releases
 ## [Unreleased]
 
 ### Planned
-- GeckoView engine track (v2.0): full migration assessment delivered in `docs/GECKOVIEW_MIGRATION.md`; next step is the Phase-0 spike branch. WebExtensions support, engine-level blocking, per-profile cookie isolation.
-- Per-site toggles (JavaScript, cookies) via a site panel; per-site desktop-mode memory.
+- Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
+- GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
+
+## [1.6.0] — 2026-09-19
+
+### Added
+- **Site settings panel.** A new *Site settings* menu entry opens a per-site panel for the host you are on: **JavaScript** on/off, **exemption from ad blocking** (writes the same allowlist as the existing quick action), and **Desktop-site memory** — hosts remembered here load with the desktop user agent from the very first request of every future visit, and the per-tab menu toggle from v1.5.0 stays available on top. The panel states plainly what the system WebView cannot do: per-site cookie rules are not offered, because the WebView cookie jar is global and such a toggle could not be enforced honestly. Per-site JavaScript is a kill-list that applies while JavaScript is on globally.
+- **Long-press context menu.** Pressing and holding a link now offers *Open in new tab*, *Copy link address* and *Share link*; a plain image additionally offers *Download image* (through the system DownloadManager). Non-http targets (`mailto:` and friends) can be copied and shared but never opened or downloaded. For image-anchored links the menu acts on the link — the WebView only reports the link target synchronously, and no async hit-test workaround is used.
+- **Edge-swipe tab switching.** A clearly horizontal drag from the left screen edge (moving right) switches to the previous tab; from the right edge (moving left) to the next one — UC-Browser style. The gesture only arms when the touch starts within 24 dp of an edge, the drag exceeds 56 dp while staying dominantly horizontal, and the visible WebView cannot scroll horizontally in that direction, so carousels, sliders and map pans always keep their own swipes; vertical drags are abandoned to the page and pull-to-refresh as before. A new *Edge swipe to switch tabs* setting (on by default) controls it.
+- **Password autofill, surfaced honestly.** A new Settings row shows the credential manager currently enabled at the Android system level (or *None set*) and opens the system autofill picker. Zerium itself never stores, reads or transmits passwords (`setSavePassword` stays off); filling is provided entirely by the user's chosen service (Bitwarden, KeePassDX, system providers) through the Android autofill framework, which the WebView supports natively on API 26+.
+- **Downloads screen detail.** The downloads list now shows the file size for completed downloads, live progress percentages for running ones, and plain-text failure reasons (out of space / server error / file error) for failed ones.
+- **Close incognito in one tap.** The tab switcher toolbar gains a *Close incognito* action that closes every incognito tab at once and reports how many; regular tabs are untouched.
+- **GeckoView Phase-0 spike (no user-facing change).** A separate `:gecko-spike` Gradle module boots a real GeckoSession (Mozilla GeckoView 140 ESR from Mozilla's Maven repository) and is compiled in CI by a dedicated non-gating job. The production app still ships on the System WebView; the spike proves the toolchain from the [migration plan](docs/GECKOVIEW_MIGRATION.md) and is documented in `docs/GECKOVIEW_SPIKE.md`.
+- **Sync: evaluated, honestly not shipped.** The full assessment lives in `docs/SYNC_EVALUATION.md`: every real sync variant needs a server, the credible options (Firefox Sync protocol, Brave-style chains, a Zerium-hosted service) are each weighed against the project's zero-backend reality, and the honest near-term alternative (local export/import of user data) is on the roadmap instead. Nothing in the app syncs or implies syncing.
+
+### Honest scope
+- Per-site JavaScript is a kill-list on top of the global switch: with JavaScript disabled globally, no per-site override can turn it back on (a WebView limit, stated in the panel).
+- Per-site desktop memory applies at load time (typed URLs, home tiles, restores). A link click into a remembered host from a non-remembered page keeps the current tab's UA until the next explicit load of that host.
+- The edge-swipe inset (24 dp) sits inside the system gesture-navigation exclusion zone, so with system gesture navigation the OS edge zone may take part of the swipe area; the gesture is most reliable with 3-button navigation or a light swipe from slightly further in.
+- Context-menu actions act on what the WebView reports synchronously: image-anchored links expose the link, not the image, and JS-driven elements report nothing (no menu).
+- Password autofill depends entirely on the user's system service; Zerium only opens the system screen and shows its status.
 
 ## [1.5.0] — 2026-09-15
 
