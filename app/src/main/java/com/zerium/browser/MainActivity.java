@@ -3,7 +3,6 @@ package com.zerium.browser;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -16,6 +15,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.print.PrintAttributes;
@@ -27,6 +27,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -54,13 +55,26 @@ import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
+import com.zerium.browser.dl.DownloadEngine;
+import com.zerium.browser.dl.MediaRegistry;
+import com.zerium.browser.dl.MediaRegistryHolder;
+import com.zerium.browser.ui.MediaGrabberSheet;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements MediaGrabberSheet.Host {
 
     static final String HOME_URL = "about:home";
     private static final int MAX_RESTORED_TABS = 10;
@@ -88,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MENU_FORWARD = 21;
     private static final int MENU_RELOAD = 22;
     private static final int MENU_SHARE_QA = 23;
+    private static final int MENU_MEDIA = 24;
 
     // Long-press context menu actions
     private static final int CTX_OPEN_NEW_TAB = 1;
@@ -97,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int REQ_FILE_CHOOSER = 41;
     private static final int REQ_PERMISSION = 42;
+    private static final int REQ_NOTIF = 43;
 
     private Prefs prefs;
     private AdBlocker adBlocker;
@@ -104,6 +120,9 @@ public class MainActivity extends AppCompatActivity {
     private HistoryDB history;
     private final TabManager tabs = new TabManager();
     private final AtomicLong sessionBlocked = new AtomicLong(0);
+    private DownloadEngine engine;
+    private MediaRegistry mediaRegistry;
+    private String mediaGrabScript;
 
     private FrameLayout webContainer;
     private SwipeRefreshLayout swipe;
@@ -137,6 +156,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         prefs = new Prefs(this);
+        engine = DownloadEngine.get(this);
+        mediaRegistry = MediaRegistryHolder.get(this);
+        mediaGrabScript = readAsset(this, "media-grab.js");
         adBlocker = new AdBlocker();
         adBlocker.init(this, prefs);
         bookmarks = new BookmarksDB(this);
@@ -489,6 +511,20 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception ignored) {}
         }
 
+        // Media grabber: in-page scanner runs at document start (early
+        // MutationObserver capture) and reports through a per-tab bridge.
+        try {
+            if (prefs.mediaGrabber() && mediaGrabScript != null && !mediaGrabScript.isEmpty()
+                    && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                java.util.Set<String> allOrigins = new java.util.HashSet<>(
+                        java.util.Arrays.asList("http://*/*", "https://*/*"));
+                WebViewCompat.addDocumentStartJavaScript(w, mediaGrabScript, allOrigins);
+            }
+        } catch (Exception ignored) {}
+        if (prefs.mediaGrabber() && prefs.javascriptEnabled()) {
+            w.addJavascriptInterface(new MediaBridge(tab), "__zeriumMedia");
+        }
+
         w.setWebViewClient(new ZeriumWebViewClient(tab));
         w.setWebChromeClient(new ZeriumChromeClient(tab));
         w.setDownloadListener(this::startDownload);
@@ -579,6 +615,16 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            // Media grabber network sniffing (URL-shape based; the DOM scan
+            // catches the mime-known cases this misses).
+            if (prefs.mediaGrabber() && !tab.incognito) {
+                String u = request.getUrl().toString();
+                String mtag = MediaRegistry.classifyUrl(u);
+                if (mtag != null) {
+                    mediaRegistry.add(tab.id,
+                            new MediaRegistry.Item(u, mtag, "", "", -1));
+                }
+            }
             if (!prefs.blockAds() || !adBlocker.isReady()) return null;
             String url = request.getUrl().toString();
             String pageUrl = tab.url == null ? "" : tab.url;
@@ -601,6 +647,7 @@ public class MainActivity extends AppCompatActivity {
             tab.url = url;
             tab.blockedOnPage = 0;
             tab.readerActive = false;
+            mediaRegistry.clear(tab.id);
             // Per-site JavaScript (site panel): enforce the effective value and
             // reload once when a navigation lands on a host with a different
             // rule than the tab currently runs (e.g. a link to another site).
@@ -641,6 +688,7 @@ public class MainActivity extends AppCompatActivity {
             if (blocked > 0) prefs.addTotalBlocked(blocked);
             injectCosmetic(tab);
             injectYouTube(tab);
+            injectMediaGrab(view);
             if (tabs.currentTab() == tab) {
                 updateChrome(tab);
                 swipe.setRefreshing(false);
@@ -949,6 +997,8 @@ public class MainActivity extends AppCompatActivity {
         entries.add(MenuSheet.item(MENU_BOOKMARKS, R.string.menu_bookmarks, R.drawable.ic_bookmark));
         entries.add(MenuSheet.item(MENU_HISTORY, R.string.menu_history, R.drawable.ic_history));
         entries.add(MenuSheet.item(MENU_DOWNLOADS, R.string.menu_downloads, R.drawable.ic_download));
+        entries.add(MenuSheet.item(MENU_MEDIA, R.string.menu_media, R.drawable.ic_video,
+                onPage && t != null && mediaRegistry.count(t.id) > 0));
         entries.add(MenuSheet.item(MENU_FIND, R.string.menu_find, R.drawable.ic_search, onPage));
         entries.add(MenuSheet.divider());
         // Page tools
@@ -1006,7 +1056,12 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(new Intent(this, HistoryActivity.class), 102);
                 break;
             case MENU_DOWNLOADS:
-                startActivity(new Intent(this, DownloadsActivity.class));
+                startActivity(new Intent(this, com.zerium.browser.ui.DownloadsActivity.class));
+                break;
+            case MENU_MEDIA:
+                if (t != null) {
+                    MediaGrabberSheet.show(getSupportFragmentManager(), t.id);
+                }
                 break;
             case MENU_FIND: showFindBar(); break;
             case MENU_SHARE:
@@ -1621,20 +1676,146 @@ public class MainActivity extends AppCompatActivity {
     private void startDownload(String url, String userAgent, String contentDisposition,
                                String mimeType, long contentLength) {
         try {
-            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-            if (userAgent != null) req.addRequestHeader("User-Agent", userAgent);
-            String cookie = CookieManager.getInstance().getCookie(url);
-            if (cookie != null) req.addRequestHeader("Cookie", cookie);
-            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                    Utils.fileNameFromUrl(url));
-            DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-            if (dm != null) {
-                dm.enqueue(req);
-                toast(R.string.download_started);
-            }
+            ensureNotifPermission();
+            String source = contentDisposition != null && !contentDisposition.isEmpty()
+                    ? contentDisposition : url;
+            Tab t = tabs.currentTab();
+            engine.enqueue(url, Utils.fileNameFromUrl(source), mimeType, userAgent,
+                    url, t != null ? t.url : "", t != null ? t.title : "",
+                    false, prefs.turboDownloads());
+            toast(R.string.download_started);
         } catch (Exception e) {
             Toast.makeText(this, getString(R.string.download_failed, e.getMessage()), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Entry point for media-grabber rows (videos, streams, files, blobs). */
+    @Override
+    public void onMediaDownloadRequested(MediaRegistry.Item item) {
+        if (item == null || item.url == null) return;
+        if (MediaRegistry.TAG_BLOB.equals(item.tag)) {
+            captureBlob(item.url);
+            return;
+        }
+        startTurboDownload(item.url, MediaRegistry.TAG_HLS.equals(item.tag), item.mime);
+    }
+
+    private void startTurboDownload(String url, boolean hls, String mime) {
+        try {
+            ensureNotifPermission();
+            Tab t = tabs.currentTab();
+            engine.enqueue(url, Utils.fileNameFromUrl(url), mime,
+                    t != null ? t.webView.getSettings().getUserAgentString() : null,
+                    url, t != null ? t.url : "", t != null ? t.title : "",
+                    hls, prefs.turboDownloads());
+            toast(R.string.download_started);
+        } catch (Exception e) {
+            toast(R.string.download_failed_generic);
+        }
+    }
+
+    /** Asks the page to fetch a blob: URL and stream it over the bridge. */
+    private void captureBlob(String blobUrl) {
+        Tab t = tabs.currentTab();
+        if (t == null || mediaGrabScript == null) return;
+        String sid = Long.toString(System.currentTimeMillis(), 36)
+                + (int) (Math.random() * 100);
+        String safeUrl = blobUrl.replace("'", "");
+        String js = "window.__zeriumMediaGrab && window.__zeriumMediaGrab('"
+                + safeUrl + "','" + sid + "',300);";
+        t.webView.evaluateJavascript(js, null);
+        toast(R.string.download_started);
+    }
+
+    private void ensureNotifPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
+                android.Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    REQ_NOTIF);
+        }
+    }
+
+    /** JavaScript bridge for the in-page media scanner (per tab). */
+    private class MediaBridge {
+        private final Tab tab;
+
+        MediaBridge(Tab tab) { this.tab = tab; }
+
+        @JavascriptInterface
+        public void onMedia(String json) {
+            if (!prefs.mediaGrabber() || tab.incognito) return;
+            try {
+                JSONArray arr = new JSONArray(json);
+                for (int i = 0; i < arr.length() && i < 50; i++) {
+                    JSONObject o = arr.getJSONObject(i);
+                    String u = o.optString("url", "");
+                    if (u.isEmpty()) continue;
+                    mediaRegistry.add(tab.id, new MediaRegistry.Item(
+                            u, o.optString("tag", "video"), o.optString("mime", ""),
+                            o.optString("label", ""), o.optLong("size", -1)));
+                }
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void onBlobBegin(String id, long size, String mime) {
+            if (!prefs.mediaGrabber() || tab.incognito) return;
+            String name = (tab.title == null || tab.title.isEmpty()
+                    ? Utils.hostOf(tab.url) : tab.title);
+            if (name == null || name.isEmpty()) name = "capture";
+            name = name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+            String ext = mime != null && mime.contains("video/") ? ".mp4"
+                    : mime != null && mime.contains("audio/") ? ".m4a" : ".bin";
+            engine.beginBlob(id, size, mime, name + ext);
+        }
+
+        @JavascriptInterface
+        public void onBlobChunk(String id, String b64) {
+            if (id == null || b64 == null || b64.isEmpty()) return;
+            try {
+                File f = engine.blobFile(id);
+                if (f == null) return;
+                byte[] data = Base64.getDecoder().decode(b64);
+                try (FileOutputStream os = new FileOutputStream(f, true)) {
+                    os.write(data);
+                }
+                engine.blobProgress(id, f.length());
+            } catch (Exception e) {
+                engine.endBlob(id, "write-failed");
+            }
+        }
+
+        @JavascriptInterface
+        public void onBlobEnd(String id, String error) {
+            if (id == null) return;
+            engine.endBlob(id, error == null ? "" : error);
+            if ("too-large".equals(error)) {
+                runOnUiThread(() -> toast(R.string.dl_blob_too_large));
+            }
+        }
+    }
+
+    /** Page-finish fallback injection for the media scanner (doc-start is
+     *  the primary path; the script self-guards double injection). */
+    private void injectMediaGrab(WebView view) {
+        if (!prefs.mediaGrabber() || mediaGrabScript == null || mediaGrabScript.isEmpty()) {
+            return;
+        }
+        try {
+            view.evaluateJavascript(mediaGrabScript, null);
+        } catch (Exception ignored) {}
+    }
+
+    private static String readAsset(Context c, String name) {
+        try (InputStream is = c.getAssets().open(name)) {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = is.read(buf)) > 0) bos.write(buf, 0, n);
+            return new String(bos.toByteArray(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return null;
         }
     }
 

@@ -33,7 +33,7 @@ The project follows three hard rules. First, **honesty over marketing**: every c
 - **Live transparency** — menu shows blocked counts; the padlock icon and connection dialog explain HTTPS status; a per-site allowlist exempts chosen domains.
 - **Tabs** — multi-tab browsing with a grid switcher showing live page previews, incognito tabs that skip history and bookmarks, one-tap "Close incognito" bulk action, edge-swipe tab switching, and session restore across restarts.
 - **Privacy controls** — third-party cookie blocking (on by default), optional global cookie/JavaScript switches, Do Not Track + Global Privacy Control headers, algorithmic darkening, one-tap data clearing (history, cookies, site storage).
-- **Real browser plumbing** — omnibox with smart URL/search detection, built-in plus custom search engines, bookmarks and history (SQLite), system DownloadManager integration with a downloads screen showing sizes, progress and failure reasons, file upload support, camera/microphone permission prompts, geolocation prompts, SSL error warnings, find-in-page, share targets, long-press link/image menus (open in new tab, copy, share, download), full-screen video, Material You dynamic theming with system/light/dark modes.
+- **Real browser plumbing** — omnibox with smart URL/search detection, built-in plus custom search engines, bookmarks and history (SQLite), file upload support, camera/microphone permission prompts, geolocation prompts, SSL error warnings, find-in-page, share targets, long-press link/image menus (open in new tab, copy, share, download), full-screen video, Material You dynamic theming with system/light/dark modes.
 - **Reader view** — clean, theme-aware article rendering powered by Mozilla Readability (Apache-2.0), with byline and estimated reading time; the original page is restored exactly on toggle-off and nothing is re-fetched.
 - **Desktop site, per tab** — desktop user agent derived from the device's own WebView engine version (never a stale hardcoded one), with one-tap toggle and reload.
 - **Translate page** — one-tap full-page translation through Google's `translate.goog` proxy in the same tab, no API key, with a View-original way back.
@@ -44,6 +44,10 @@ The project follows three hard rules. First, **honesty over marketing**: every c
 - **Site settings panel** — per-site JavaScript, per-site ad-blocking exemption and per-site desktop-site memory for the host you are on; stated plainly in the panel itself, per-site cookie rules are not possible on the WebView engine.
 - **Password autofill** — delegated to the credential manager you enable at the Android system level (Bitwarden, KeePassDX, system providers); Zerium stores, reads and transmits no passwords and only surfaces the system autofill status.
 - **GeckoView Phase-0 spike** — a separate `:gecko-spike` module boots a real GeckoSession and compiles in CI (`docs/GECKOVIEW_SPIKE.md`); the shipped browser stays on the System WebView. Sync was evaluated honestly and deliberately not shipped (`docs/SYNC_EVALUATION.md`).
+- **Turbo download engine** — a full download manager built into the browser: multi-connection range downloads (up to 8 connections per file where the server supports HTTP ranges, automatic single-connection fallback), pause/resume with persisted partial progress that survives restarts, a bounded download queue, automatic retry with backoff, and background downloading through a foreground service with per-task progress notifications (speed, ETA, pause/resume/cancel actions). Files are organized into category folders under `Download/Zerium/` (Video, Audio, Images, Docs, Archives, APKs, Other).
+- **Media grabber** — "Media on this page" lists the videos, audio tracks, HLS/DASH playlists, direct file links and blob-backed players detected on the page by an in-page scanner and network sniffing; one tap sends any item to the download engine. Blob-backed players are captured in-page and streamed to the app in chunks (300 MB cap, refused politely above it). Encrypted (AES-128/SAMPLE-AES) and DRM-protected streams are honestly refused, never silently broken.
+- **Jetpack Compose (Material 3) surfaces** — the download manager, media grabber sheet and appearance screen are built with Jetpack Compose and Material 3, matching the app's tonal palette, with Material You dynamic color support and light/dark schemes mirroring the classic UI.
+- **Appearance customization** — theme mode (System/Light/Dark), a Material You dynamic-color toggle (Android 12+), and six accent colors; applies instantly to the Compose screens (classic screens pick the palette up on next launch), stated honestly on the screen itself.
 - **Brave-style menu and start page** — the menu is a sectioned bottom sheet with a circular quick-action row (back / forward / refresh / share); the start page carries a three-metric **Privacy Stats** card (Trackers & Ads Blocked, Est. Data Saved, Est. Time Saved — Brave's conservative ≈50 KB + ≈50 ms per-block formula, computed on-device), favicon shortcut tiles with monogram fallback, and DuckDuckGo search suggestions while typing on the start page only; **Delete browsing data** (history, cookies/site data, caches) sits in the menu — the WebView cookie jar is shared engine-wide, so cookie clearing is global and stated as such.
 
 ## Releases & channels
@@ -88,6 +92,7 @@ Zerium v1 uses the **Android System WebView** engine. That is a deliberate, docu
 3. **DNT/GPC headers apply to main-frame requests**; WebView does not expose per-subresource header injection.
 4. **Incognito shares the WebView cookie jar** with normal tabs; history and bookmarks are skipped, and true cookie isolation is planned via the WebView Profiles API.
 5. Blocking is domain/path based; it is not a full filter-list DSL (no EasyList syntax) in v1.
+6. **Downloaded streams have real-world limits.** MSE/DASH media delivered as many small encrypted or indexed segments is only partially capturable; DRM (Widevine/FairPlay) streams are never downloadable. Multi-connection speedups only materialize when the server supports HTTP ranges. Blob capture needs the page's own cooperation and is capped at 300 MB. Torrents are not supported (no engine in-app).
 
 ## Roadmap
 
@@ -97,7 +102,7 @@ Zerium v1 uses the **Android System WebView** engine. That is a deliberate, docu
 4. WebView Profiles API for true incognito isolation (API level permitting).
 5. Reproducible release signing documentation.
 
-(Shipped in v1.5.0: HTTPS-first main-frame upgrades, reader view, translate, print, custom engines, automatic list updates. Shipped in v1.6.0: site settings panel, long-press context menus, edge-swipe tab switching, password-autofill status, downloads detail, GeckoView Phase-0 spike, sync evaluation.)
+(Shipped in v1.9.0: turbo download engine with pause/resume and background notifications, media grabber, HLS stream downloads, category folders, Jetpack Compose/Material 3 download + media + appearance screens, theme customization. Shipped in v1.5.0: HTTPS-first main-frame upgrades, reader view, translate, print, custom engines, automatic list updates. Shipped in v1.6.0: site settings panel, long-press context menus, edge-swipe tab switching, password-autofill status, downloads detail, GeckoView Phase-0 spike, sync evaluation.)
 
 ## Building from source
 

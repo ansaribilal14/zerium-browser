@@ -12,7 +12,10 @@ public class ZeriumApp extends Application {
     public void onCreate() {
         super.onCreate();
         appContext = this;
-        DynamicColors.applyToActivitiesIfAvailable(this);
+        // Material You dynamic color honours the user's Appearance setting.
+        if (new Prefs(this).dynamicColor()) {
+            DynamicColors.applyToActivitiesIfAvailable(this);
+        }
     }
 
     /** Application-wide context for non-Activity components. */

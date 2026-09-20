@@ -36,3 +36,9 @@
 ## Later
 
 - Chromium/Cromite fork track revisited if/when build infrastructure (self-hosted runner with 16+ cores, 200+ GB disk) becomes available; the rebase operations cost is documented in `docs/ARCHITECTURE.md` and remains the deciding factor.
+
+## Download-manager track (opened in v1.9.0)
+
+- BitTorrent/magnet support: needs an in-app engine decision (library size vs. APK weight for a WebView-class browser); evaluate libtorrent4j and a native-service design before committing.
+- Per-site download rules and download-location picker.
+- DASH (mpd) segment assembly beyond the current playlist handling; encrypted HLS (AES-128) via a key-fetch path if legally unencumbered use cases demand it.

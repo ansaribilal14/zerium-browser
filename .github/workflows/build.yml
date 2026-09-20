@@ -56,7 +56,7 @@ jobs:
           chmod +x ./gradlew
           # Scoped to :app so the gecko-spike module never influences the
           # release pipeline (aggregating assembleRelease would build it too).
-          ./gradlew --no-daemon --stacktrace :app:assembleRelease :app:assembleDebug
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease :app:assembleDebug
 
       - name: Organize artifacts
         run: |

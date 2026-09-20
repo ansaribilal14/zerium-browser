@@ -10,6 +10,32 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
 - GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
 
+## [1.9.0] — 2026-09-20
+
+The Turbo Downloads release: a complete download manager with an in-page media grabber, plus Jetpack Compose (Material 3) screens and deeper appearance customization.
+
+### Added
+- **Turbo download engine** — all downloads now run through Zerium's own manager instead of the system downloader: multi-connection range downloads (up to 8 connections per file where the server supports ranges, with an automatic single-connection fallback when a server silently ignores ranges), pause and resume with persisted partial progress, a bounded queue (3 concurrent), automatic retry with backoff, and honest error mapping (403/404/range/encrypted/storage/network).
+- **Background downloads** — a foreground service keeps transfers running while you browse or leave the app; per-task notifications show live progress, speed and ETA with pause/resume/cancel actions, an Open action on completion and Retry on failure (notification permission requested on Android 13+).
+- **Media grabber** — a "Media on this page" menu entry lists videos, audio, HLS/DASH playlists, direct file links and blob-backed players detected on the current page by an in-page DOM scanner (document-start injection with a MutationObserver) plus URL-shape network sniffing; each row downloads with one tap.
+- **Blob capture** — single-file `blob:` video/audio players are fetched by the page itself and streamed to the app in base64 chunks (512 KB each, 300 MB cap) with live progress in the downloads list.
+- **HLS stream downloads** — m3u8 playlists resolve master→highest-bandwidth variant and download segments sequentially into a single `.ts` file with per-segment progress; encrypted playlists are refused with a clear error.
+- **Category folders** — finished files land in `Download/Zerium/<Video|Audio|Images|Docs|Archives|APKs|Other>` via MediaStore on Android 10+ (direct paths with a stated app-dir fallback on older devices).
+- **Jetpack Compose download manager** — the Downloads screen is rebuilt in Compose (Material 3): live progress with speed/ETA, filter chips (All/Active/Finished), per-task pause/resume/cancel/retry, tap to open; unit tests cover the task/category/registry layer.
+- **Appearance screen (Compose)** — theme mode (System/Light/Dark), Material You dynamic color toggle (Android 12+), and six accent colors, with an honest note about when the accent reaches classic screens.
+- **Settings** — switches for accelerated downloads and page-media detection, plus an Appearance row.
+
+### Changed
+- `ZeriumApp` now honours the dynamic-color preference instead of applying Material You unconditionally.
+- The YouTube suppression pipeline, cosmetic filter and blocklists are untouched; the media scanner observes requests without altering the blocking pipeline (21/21 YouTube suite green).
+
+### Honest scope
+- MSE/DASH media served as many small encrypted or indexed segments is only partially capturable; DRM (Widevine/FairPlay) streams are never downloadable.
+- Multi-connection speedups only materialize when the server supports HTTP ranges and the network allows parallelism.
+- Blob capture requires same-origin cooperation from the page and is capped at 300 MB; sites that fragment media across many blob segments cannot be captured whole.
+- Torrent downloads are not supported (no engine in-app); tracked in ROADMAP.
+- The static accent applies instantly to the Compose screens; classic View screens follow on next launch.
+
 ## [1.8.0] — 2026-09-19
 
 ### Added

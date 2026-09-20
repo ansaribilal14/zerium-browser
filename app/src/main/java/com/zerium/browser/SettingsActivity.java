@@ -141,6 +141,16 @@ public class SettingsActivity extends AppCompatActivity {
             prefs.gestures(val);
             ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
         });
+        bindSwitch(R.id.swTurbo, prefs.turboDownloads(), (View.OnClickListener) v -> {
+            boolean val = !prefs.turboDownloads();
+            prefs.turboDownloads(val);
+            ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
+        });
+        bindSwitch(R.id.swMediaGrabber, prefs.mediaGrabber(), (View.OnClickListener) v -> {
+            boolean val = !prefs.mediaGrabber();
+            prefs.mediaGrabber(val);
+            ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
+        });
 
         // Text size
         TextView textSizeValue = findViewById(R.id.valueTextSize);
@@ -163,6 +173,8 @@ public class SettingsActivity extends AppCompatActivity {
                     .setNegativeButton(R.string.cancel, null)
                     .show();
         });
+        findViewById(R.id.rowAppearance).setOnClickListener(v ->
+                startActivity(new Intent(this, com.zerium.browser.ui.AppearanceActivity.class)));
 
         // Data
         findViewById(R.id.rowClearHistory).setOnClickListener(v -> confirm(R.string.clear_history_title, () -> {
