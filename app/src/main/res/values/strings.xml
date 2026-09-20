@@ -219,6 +219,7 @@
     <string name="stats_note">Estimates: ≈50 KB and ≈50 ms saved per blocked request (Brave\'s conservative formula). Stored only on this device.</string>
     <string name="start_suggestions_note">Search suggestions come from DuckDuckGo only while you type here.</string>
     <!-- Download manager -->
+    <string name="download_failed_generic">Download failed</string>
     <string name="dl_channel_active">Downloads</string>
     <string name="dl_channel_done">Download results</string>
     <string name="dl_service_running">Downloading…</string>
