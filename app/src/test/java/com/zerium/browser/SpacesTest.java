@@ -70,9 +70,24 @@ public class SpacesTest {
         assertFalse(s.remove(Spaces.DEFAULT_ID));
         assertFalse(s.remove(null));
         assertEquals(1, s.count());
-        // Default space survives unknown active ids.
-        Spaces s2 = Spaces.load(s.dump().replace("default", "ghost"));
-        assertEquals(Spaces.DEFAULT_ID, s2.activeId());
+        // A stored doc without the default space gets it re-added, and an
+        // unknown active id falls back to the default space.
+        try {
+            org.json.JSONArray spaces = new org.json.JSONArray()
+                    .put(new org.json.JSONObject()
+                            .put("id", "s9")
+                            .put("name", "Solo")
+                            .put("isolated", false)
+                            .put("created", 7L));
+            String doc = new org.json.JSONArray().put(spaces).put("ghost").toString();
+            Spaces s2 = Spaces.load(doc);
+            assertEquals(2, s2.count());
+            assertEquals(Spaces.DEFAULT_ID, s2.activeId());
+            assertEquals("Personal", s2.active().name);
+            assertNotNull(s2.get("s9"));
+        } catch (org.json.JSONException e) {
+            throw new AssertionError(e);
+        }
     }
 
     @Test
