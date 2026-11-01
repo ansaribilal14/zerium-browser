@@ -242,7 +242,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
             else showTabSwitcher();
         });
         findViewById(R.id.btnMenuTop).setOnClickListener(this::showMenu);
-        findViewById(R.id.btnMenuBottom).setOnClickListener(this::showMenu);
+        findViewById(R.id.btnMenuBottom).setOnClickListener(this::showBottomMenu);
 
         findBar = findViewById(R.id.findBar);
         findInput = findViewById(R.id.findInput);
@@ -1178,6 +1178,45 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         entries.add(MenuSheet.item(MENU_DELETE_DATA, R.string.menu_delete_data, R.drawable.ic_trash));
         entries.add(MenuSheet.item(MENU_SETTINGS, R.string.menu_settings, R.drawable.ic_gear));
         entries.add(MenuSheet.item(MENU_EXIT, R.string.menu_exit, R.drawable.ic_exit));
+        MenuSheet.show(this, entries, e -> handleMenu(e.id));
+    }
+
+    /**
+     * Bottom task bar menu: a compact quick-actions sheet, deliberately
+     * different from the top full menu. Everything here is one-thumb
+     * territory — new tabs, spaces, destinations and the most common page
+     * toggles — while the top menu keeps the complete list (quick nav row,
+     * page tools, app items). Both routes share {@link #handleMenu(int)}.
+     */
+    private void showBottomMenu(View anchor) {
+        Tab t = tabs.currentTab();
+        boolean onPage = t != null && !isStartPage(t);
+        java.util.List<MenuSheet.Entry> entries = new java.util.ArrayList<>();
+        // Quick actions (Brave-style circular row): the bottom bar already
+        // carries back/forward/home/tabs, so this row is tab + space making.
+        entries.add(MenuSheet.action(MENU_NEW_TAB, R.string.menu_new_tab, R.drawable.ic_plus));
+        entries.add(MenuSheet.action(MENU_NEW_INCOGNITO, R.string.menu_new_incognito,
+                R.drawable.ic_incognito));
+        entries.add(MenuSheet.action(MENU_SPACES, R.string.menu_spaces, R.drawable.ic_spaces));
+        entries.add(MenuSheet.action(MENU_DOWNLOADS, R.string.menu_downloads, R.drawable.ic_download));
+        entries.add(MenuSheet.divider());
+        entries.add(MenuSheet.item(MENU_BOOKMARK_ADD, isCurrentBookmarked()
+                        ? R.string.menu_remove_bookmark : R.string.menu_add_bookmark,
+                R.drawable.ic_bookmark, onPage));
+        entries.add(MenuSheet.item(MENU_BOOKMARKS, R.string.menu_bookmarks, R.drawable.ic_bookmark));
+        entries.add(MenuSheet.item(MENU_HISTORY, R.string.menu_history, R.drawable.ic_history));
+        entries.add(MenuSheet.item(MENU_MEDIA, R.string.menu_media, R.drawable.ic_video,
+                onPage && t != null && mediaRegistry.count(t.id) > 0));
+        entries.add(MenuSheet.divider());
+        entries.add(MenuSheet.item(MENU_FIND, R.string.menu_find, R.drawable.ic_search, onPage));
+        entries.add(MenuSheet.check(MENU_DESKTOP, R.string.menu_desktop, R.drawable.ic_desktop,
+                t != null && t.desktopMode));
+        entries.add(MenuSheet.item(MENU_READER, R.string.menu_reader, R.drawable.ic_reader, onPage));
+        entries.add(MenuSheet.item(MENU_TRANSLATE, isOnTranslatedPage(t)
+                        ? R.string.menu_view_original : R.string.menu_translate,
+                R.drawable.ic_translate, onPage));
+        entries.add(MenuSheet.divider());
+        entries.add(MenuSheet.item(MENU_SETTINGS, R.string.menu_settings, R.drawable.ic_gear));
         MenuSheet.show(this, entries, e -> handleMenu(e.id));
     }
 
