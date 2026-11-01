@@ -46,6 +46,7 @@
     'adblocker enabled', 'ad blocker is enabled', 'adblock is enabled',
     'you are using an adblock', 'you are using an ad blocker',
     'you are using an adblocker', 'using extensions to block ads',
+    'using an extension to block ads',
     'disable your adblock', 'disable your ad blocker',
     'disable your adblocker', 'disable adblock', 'turn off your adblock',
     'turn off your ad blocker', 'please disable your ad',
@@ -54,7 +55,8 @@
     "it looks like you're using an ad blocker",
     'we noticed you are using an ad blocker',
     'we noticed that you are using an ad blocker',
-    'found an adblocker', 'we have detected that you are using extensions'
+    'found an adblocker', 'we have detected that you are using extensions',
+    'we have detected that you are using an extension'
   ];
   var WEAK = ['adblock', 'ad-blocker', 'ad blocker', 'adsblocker', 'ads blocker',
     'blocker', 'advertisement', 'countdown', 'please wait'];
@@ -131,7 +133,7 @@
   }
 
   /* ---------------- wall scoring ---------------- */
-  function scoreWall(el) {
+  function scoreWall(el, selectorHint) {
     if (!el || el === document.documentElement || el === document.body) return null;
     var text = '';
     try { text = (el.innerText || el.textContent || ''); } catch (e) { }
@@ -153,17 +155,19 @@
     if (('' + role).toLowerCase().indexOf('dialog') !== -1 || ('' + role).toLowerCase() === 'alert') structural += 1;
     if (sig.strong > 0 && detectedTamper) structural += 1; // a detector is demonstrably active
     var textScore = sig.strong + Math.min(sig.weak, 2) * 0.5;
-    var selectorHit = false;
+    var selectorHit = !!selectorHint;
     try {
       var idc = (el.id || '') + ' ' + (el.className && el.className.baseVal === undefined ? el.className : '');
       var sel = (cfg.sel || '');
-      if (sel) {
+      if (sel && !selectorHit) {
         var list = sel.split(',');
         for (var k = 0; k < list.length; k++) {
           var s = list[k].trim();
           if (!s) continue;
           if (s.charAt(0) === '#' && ('#' + el.id) === s) { selectorHit = true; break; }
           if (s.charAt(0) === '.' && idc.indexOf(s.slice(1)) !== -1) { selectorHit = true; break; }
+          // Attribute selectors ([href*=…], [src*=…]) match the element itself.
+          if (s.charAt(0) === '[' && el.matches && el.matches(s)) { selectorHit = true; break; }
         }
       }
     } catch (e) { }
@@ -178,7 +182,11 @@
 
   function worthRemoving(sc) {
     if (!sc || sc.veto) return false;
-    var agg = aggressive();
+    // Walls are overlays (fixed/absolute and mostly covering). Static flow
+    // containers — like a theme wrapper that happens to hold the hidden
+    // wall markup — are never removed, no matter how their descendants text.
+    if (sc.structural < 2) return false;
+    var agg = aggressive() || detectedTamper; // a proven detector lowers the bar
     if (!agg) {
       return sc.score >= 6 || (sc.structural >= 3 && sc.textScore >= 3) ||
         (sc.selectorHit && sc.textScore >= 1 && sc.structural >= 2);
@@ -221,23 +229,61 @@
     } catch (e) { return false; }
   }
 
+  /* Candidate collection. Walls are usually direct children of body, but
+   * themes wrap footer output in containers, so a bounded descent (depth 3,
+   * 400 nodes) is walked too. Known-selector and hint hits also contribute
+   * their ancestors: published widgets (CHP Ads Block Detector and friends)
+   * hide behind random class names but carry stable attributes deep inside
+   * the wall (branding href, icon src) — the wall itself is an ancestor. */
+  var HINT_SEL = '[class*="adblock" i],[id*="adblock" i],[class*="adsblock" i],[id*="adsblock" i],' +
+    '[class*="ad-block" i],[id*="ad-block" i],[class*="blocker" i],[id*="blocker" i]';
+  function collectCandidates() {
+    var out = [], selAncestors = [], seen = [];
+    function push(el, hinted) {
+      if (!el || el === document.body || el === document.documentElement) return;
+      for (var s = 0; s < seen.length; s++) if (seen[s] === el) { if (hinted) selAncestors[s] = true; return; }
+      seen.push(el); out.push(el);
+      if (hinted) selAncestors[out.length - 1] = true;
+    }
+    function pushAncestors(el) {
+      var p = el.parentNode, hops = 0;
+      while (p && p !== document.body && p !== document.documentElement && hops < 4) {
+        push(p, true); p = p.parentNode; hops++;
+      }
+    }
+    try {
+      // body children + bounded descent (children is a live HTMLCollection)
+      var base = document.body.children || [];
+      var queue = [];
+      for (var b = 0; b < base.length; b++) queue.push(base[b]);
+      for (var q = 0; q < queue.length && out.length < 400; q++) {
+        var cur = queue[q];
+        push(cur, false);
+        var kids = cur.children || [];
+        for (var k = 0; k < kids.length && out.length < 400; k++) {
+          push(kids[k], false);
+          var gk = kids[k].children || [];
+          for (var g = 0; g < gk.length && out.length < 400; g++) push(gk[g], false);
+        }
+      }
+      // hint-selector hits and their ancestors
+      var hinted = document.querySelectorAll(HINT_SEL) || [];
+      for (var j = 0; j < hinted.length; j++) { push(hinted[j], true); pushAncestors(hinted[j]); }
+      // known wall selectors and their ancestors
+      var sel = (cfg.sel || '').trim();
+      if (sel) {
+        var known = document.querySelectorAll(sel) || [];
+        for (var k2 = 0; k2 < known.length; k2++) { push(known[k2], true); pushAncestors(known[k2]); }
+      }
+    } catch (e) { return { list: [], selAncestors: [] }; }
+    return { list: out, selAncestors: selAncestors };
+  }
+
   function scan() {
     if (!active() || removedCount >= MAX_REMOVALS) return;
     if (!document.body) return;
-    var candidates = [];
-    try {
-      var kids = document.body.children || [];
-      for (var i = 0; i < kids.length; i++) candidates.push(kids[i]);
-      var hinted = document.querySelectorAll(
-        '[class*="adblock" i],[id*="adblock" i],[class*="adsblock" i],[id*="adsblock" i],' +
-        '[class*="ad-block" i],[id*="ad-block" i],[class*="blocker" i],[id*="blocker" i]');
-      for (var j = 0; j < hinted.length; j++) candidates.push(hinted[j]);
-      var sel = (cfg.sel || '').trim();
-      if (sel) {
-        var known = document.querySelectorAll(sel);
-        for (var k2 = 0; k2 < known.length; k2++) candidates.push(known[k2]);
-      }
-    } catch (e) { return; }
+    var col = collectCandidates();
+    var candidates = col.list, selAncestors = col.selAncestors;
     var best = null;
     for (var c = 0; c < candidates.length; c++) {
       var el = candidates[c];
@@ -245,7 +291,7 @@
       if (el.getAttribute && el.getAttribute('data-zerium-removed')) continue;
       if (el.__zeriumChecked) continue;      // scored already and kept
       if (hiddenByCss(el)) continue;         // invisible: not a live wall
-      var sc = scoreWall(el);
+      var sc = scoreWall(el, selAncestors[c] === true);
       if (!sc) continue;
       if (sc.veto) { el.__zeriumChecked = true; continue; }
       if (worthRemoving(sc) && !contentInside(el)) {

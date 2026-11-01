@@ -50,10 +50,13 @@ public class AntiAdblockRulesTest {
     public void wallSelectorListIsWellFormed() {
         String sel = AntiAdblockRules.wallSelectorList();
         assertTrue(sel.contains("#detectadblock"));
+        // CHP Ads Block Detector stable artifacts (branding hrefs, plugin assets)
+        assertTrue(sel.contains("[href*=\"chpadblock.com\"]"));
+        assertTrue(sel.contains("[src*=\"chp-ads-block-detector\"]"));
         assertFalse(sel.startsWith(","));
         assertFalse(sel.endsWith(","));
         for (String part : sel.split(",")) {
-            assertTrue(part.startsWith("#") || part.startsWith("."));
+            assertTrue(part.startsWith("#") || part.startsWith(".") || part.startsWith("["));
         }
     }
 }

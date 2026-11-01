@@ -28,9 +28,10 @@ public final class AntiAdblockRules {
      */
     public static final String[] DETECTOR_URL_PATTERNS = {
             // WordPress "CHP Ads Block Detector" (Code Help Pro) — medeberiyal.com
-            // and many similar sites; overlay markup is pre-rendered and only
-            // revealed by this script, so blocking it disables the wall.
-            "chp-ads-block-detector",
+            // and many similar sites; the detector itself is inlined by the
+            // plugin, this pattern catches its asset/CDN requests (pro CDN
+            // included). The inline detector is handled by the injected script.
+            "chp-ads-block-detector", "chpadblock.com",
             // Standalone detector scripts / widget bundles
             "blockadblock", "killadblock", "detectadblock", "adblock-detector",
             "adblockdetector", "ad-block-detector", "ads-block-detector",
@@ -46,11 +47,20 @@ public final class AntiAdblockRules {
      * (published widgets). Short by design: anything else is handled by the
      * structural + text scoring in the injected script, which is how walls
      * with randomized class names (like CHP) are matched.
+     *
+     * <p>Attribute selectors target artifacts the CHP Ads Block Detector
+     * family cannot randomize: the branding links and the plugin asset paths
+     * rendered INSIDE the wall (the injected script walks up from these hits
+     * to the wall container itself).</p>
      */
     public static final String[] WALL_SELECTORS = {
             "#detectadblock", "#adblock-detected", "#blockadblock",
             "#killadblock", "#adblock-detector", "#ad-blocker-detected",
-            ".adblock-detected", ".adsblocker-detected"
+            ".adblock-detected", ".adsblocker-detected",
+            // CHP Ads Block Detector (free + pro): stable branding/asset hooks
+            "[href*=\"chpadblock.com\"]", "[href*=\"toolkitspro.com\"]",
+            "[src*=\"chp-ads-block-detector\"]", "#chp_ads_blocker-modal",
+            ".chpadbpro_wrap_title"
     };
 
     /** True when the URL looks like a known detector script. Case-insensitive. */
