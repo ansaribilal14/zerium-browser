@@ -21,6 +21,8 @@ public class Tab {
     public Bitmap favicon;
     /** URL to load when the tab is first shown (used when restoring sessions). */
     public String pendingUrl;
+    /** Zerium Space this tab belongs to (never null; see {@link Spaces}). */
+    public String spaceId = Spaces.DEFAULT_ID;
     /** Blocked network requests counted for the currently loaded page. */
     public volatile long blockedOnPage;
     /** True when cosmetic rules were already injected at document start for this tab. */

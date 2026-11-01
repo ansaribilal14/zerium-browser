@@ -12,24 +12,48 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
 import java.util.List;
 
-/** Grid adapter for the tab switcher. */
+/** Grid adapter for the tab switcher. Shows the active space's tabs plus
+ *  every incognito tab (incognito tabs belong to no space). */
 public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
 
     public interface Listener {
         void onOpen(Tab tab);
         void onClose(Tab tab);
+        /** Long-press a card: move the tab to another Zerium Space. */
+        void onLongPress(Tab tab);
     }
 
     private final List<Tab> tabs;
     private final TabManager manager;
     private final Listener listener;
+    private String activeSpaceId = Spaces.DEFAULT_ID;
 
     public TabsAdapter(List<Tab> tabs, TabManager manager, Listener listener) {
         this.tabs = tabs;
         this.manager = manager;
         this.listener = listener;
+    }
+
+    /** Space whose tabs the switcher currently shows. */
+    public void setActiveSpaceId(String spaceId) {
+        activeSpaceId = spaceId == null ? Spaces.DEFAULT_ID : spaceId;
+    }
+
+    private boolean visible(Tab t) {
+        return t.incognito || activeSpaceId.equals(t.spaceId);
+    }
+
+    private Tab visibleAt(int position) {
+        int seen = 0;
+        for (Tab t : tabs) {
+            if (!visible(t)) continue;
+            if (seen == position) return t;
+            seen++;
+        }
+        return null;
     }
 
     @NonNull
@@ -41,7 +65,8 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
 
     @Override
     public void onBindViewHolder(@NonNull VH h, int position) {
-        final Tab t = tabs.get(position);
+        final Tab t = visibleAt(position);
+        if (t == null) return;
         h.title.setText(t.title == null || t.title.isEmpty() ? t.url : t.title);
         h.url.setText(displayHost(t));
         h.incognito.setVisibility(t.incognito ? View.VISIBLE : View.GONE);
@@ -51,12 +76,14 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
             h.preview.setImageDrawable(null);
         }
         boolean current = tabs.indexOf(t) == manager.current();
-        int stroke = ContextCompat.getColor(h.itemView.getContext(),
-                current ? R.color.primary : R.color.primary);
         h.card.setStrokeWidth(current ? 3 : 0);
-        h.card.setStrokeColor(stroke);
+        h.card.setStrokeColor(ContextCompat.getColor(h.itemView.getContext(), R.color.primary));
         h.itemView.setOnClickListener(v -> listener.onOpen(t));
         h.close.setOnClickListener(v -> listener.onClose(t));
+        h.itemView.setOnLongClickListener(v -> {
+            if (!t.incognito) listener.onLongPress(t);
+            return true;
+        });
     }
 
     private static String displayHost(Tab t) {
@@ -69,7 +96,11 @@ public class TabsAdapter extends RecyclerView.Adapter<TabsAdapter.VH> {
     }
 
     @Override
-    public int getItemCount() { return tabs.size(); }
+    public int getItemCount() {
+        int n = 0;
+        for (Tab t : tabs) if (visible(t)) n++;
+        return n;
+    }
 
     static class VH extends RecyclerView.ViewHolder {
         final com.google.android.material.card.MaterialCardView card;

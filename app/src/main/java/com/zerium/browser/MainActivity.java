@@ -13,6 +13,7 @@ import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
@@ -103,6 +104,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     private static final int MENU_RELOAD = 22;
     private static final int MENU_SHARE_QA = 23;
     private static final int MENU_MEDIA = 24;
+    private static final int MENU_SPACES = 25;
 
     // Long-press context menu actions
     private static final int CTX_OPEN_NEW_TAB = 1;
@@ -123,6 +125,8 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     private DownloadEngine engine;
     private MediaRegistry mediaRegistry;
     private String mediaGrabScript;
+    private Spaces spaces;
+    private LinearLayout spaceChips;
 
     private FrameLayout webContainer;
     private SwipeRefreshLayout swipe;
@@ -156,6 +160,13 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         setContentView(R.layout.activity_main);
 
         prefs = new Prefs(this);
+        spaces = Spaces.load(prefs.spacesJson());
+        // Retry space profiles the engine refused to delete last session —
+        // runs before anything resolves them, so the engine lets go.
+        String pending = prefs.pendingSpaceProfiles();
+        if (pending != null && !pending.isEmpty()) {
+            prefs.pendingSpaceProfiles(SpaceProfiles.retryPendingDeletions(pending));
+        }
         engine = DownloadEngine.get(this);
         mediaRegistry = MediaRegistryHolder.get(this);
         mediaGrabScript = readAsset(this, "media-grab.js");
@@ -187,6 +198,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         bottomBar = findViewById(R.id.bottomBar);
         tabSwitcher = findViewById(R.id.tabSwitcher);
         tabsGrid = findViewById(R.id.tabsGrid);
+        spaceChips = findViewById(R.id.spaceChips);
 
         fullscreenContainer = new FrameLayout(this);
         fullscreenContainer.setBackgroundColor(0xFF000000);
@@ -290,7 +302,13 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
             public void onClose(Tab tab) {
                 closeTab(tab);
             }
+
+            @Override
+            public void onLongPress(Tab tab) {
+                showMoveTabDialog(tab);
+            }
         });
+        tabsAdapter.setActiveSpaceId(spaces.activeId());
         tabsGrid.setAdapter(tabsAdapter);
         findViewById(R.id.btnNewTab).setOnClickListener(v -> {
             hideTabSwitcher();
@@ -333,13 +351,25 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
 
     // ---------- Tab lifecycle ----------
 
-    @SuppressLint("SetJavaScriptEnabled")
     private void openTab(String url, boolean incognito) {
+        openTab(url, incognito, null);
+    }
+
+    /**
+     * Opens a tab in a Zerium Space. New normal tabs join the active space;
+     * incognito tabs belong to no space. Isolated spaces get their engine
+     * profile attached as the very first WebView API call.
+     */
+    private void openTab(String url, boolean incognito, String spaceId) {
         WebView w = new WebView(this);
+        String sp = incognito ? Spaces.DEFAULT_ID
+                : (spaceId != null && spaces.get(spaceId) != null ? spaceId : spaces.activeId());
+        SpaceProfiles.attachProfile(w, incognito ? null : sp);
         w.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         webContainer.addView(w);
         Tab tab = tabs.add(w, incognito);
+        tab.spaceId = sp;
         setupWebView(tab);
         tab.pendingUrl = (url == null || url.isEmpty()) ? HOME_URL : url;
         showCurrentWebView();
@@ -392,15 +422,29 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         tabsAdapter.notifyDataSetChanged();
     }
 
+    /** Closes the active space's tabs (the switcher's current view scope). */
     private void closeAllTabs() {
-        while (tabs.count() > 0) {
-            Tab t = tabs.tabs().get(0);
-            webContainer.removeView(t.webView);
-            tabs.remove(t);
-            t.destroy();
+        String scope = spaces.activeId();
+        int i = 0;
+        while (i < tabs.tabs().size()) {
+            Tab t = tabs.tabs().get(i);
+            if (!t.incognito && scope.equals(t.spaceId)) {
+                webContainer.removeView(t.webView);
+                tabs.remove(t);
+                t.destroy();
+            } else {
+                i++;
+            }
         }
         hideTabSwitcher();
-        openTab(null, false);
+        if (tabs.count() == 0) openTab(null, false);
+        else {
+            showCurrentWebView();
+            loadPending(tabs.currentTab());
+            updateChrome(tabs.currentTab());
+        }
+        tabsAdapter.notifyDataSetChanged();
+        buildSpaceChips();
     }
 
     /** Closes every incognito tab in one step (tab-switcher toolbar action). */
@@ -450,7 +494,9 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         WebSettings s = w.getSettings();
         tab.mobileUA = s.getUserAgentString();
         applyWebSettings(s);
-        CookieManager cm = CookieManager.getInstance();
+        // Space-aware cookie jar: isolated spaces carry their own profile
+        // manager; everything else uses the global (default profile) one.
+        CookieManager cm = SpaceProfiles.cookiesFor(tab.spaceId);
         cm.setAcceptCookie(prefs.cookiesEnabled());
         cm.setAcceptThirdPartyCookies(w, !prefs.thirdPartyCookiesBlocked());
 
@@ -990,6 +1036,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         // Browsing
         entries.add(MenuSheet.item(MENU_NEW_TAB, R.string.menu_new_tab, R.drawable.ic_plus));
         entries.add(MenuSheet.item(MENU_NEW_INCOGNITO, R.string.menu_new_incognito, R.drawable.ic_incognito));
+        entries.add(MenuSheet.item(MENU_SPACES, R.string.menu_spaces, R.drawable.ic_spaces));
         entries.add(MenuSheet.divider());
         entries.add(MenuSheet.item(MENU_BOOKMARK_ADD, isCurrentBookmarked()
                         ? R.string.menu_remove_bookmark : R.string.menu_add_bookmark,
@@ -1035,6 +1082,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         switch (id) {
             case MENU_NEW_TAB: openTab(null, false); break;
             case MENU_NEW_INCOGNITO: openTab(null, true); break;
+            case MENU_SPACES: showSpacesSheet(); break;
             case MENU_BOOKMARK_ADD:
                 if (t == null || isStartPage(t)) return;
                 if (bookmarks.contains(t.url)) {
@@ -1109,10 +1157,10 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     }
 
     /** Brave-style "Delete browsing data": history, cookies and WebView
-     *  caches. Honest scope: System WebView keeps ONE shared cookie jar,
-     *  so "cookies and site data" clears it globally (the documented
-     *  shared-jar limitation of the WebView edition — the GeckoView
-     *  edition's StorageController does not have this constraint). */
+     *  caches. Cookies/site data clear across the default jar AND every
+     *  isolated space's profile jar (androidx.webkit multi-profile). When
+     *  the engine lacks multi-profile support there is only the shared jar
+     *  — the documented shared-jar limitation of this edition. */
     private void deleteBrowsingData() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -1136,10 +1184,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
                 .setPositiveButton(R.string.delete, (d, w) -> {
                     if (historyBox.isChecked()) new HistoryDB(this).clear();
                     if (siteBox.isChecked()) {
-                        android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
-                        cm.removeAllCookies(null);
-                        cm.removeSessionCookies(null);
-                        cm.flush();
+                        SpaceProfiles.clearAllSiteData(spaces.all());
                         android.webkit.WebStorage.getInstance().deleteAllData();
                     }
                     if (cacheBox.isChecked()) {
@@ -1570,6 +1615,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         hideFindBar();
         Tab current = tabs.currentTab();
         if (current != null && !current.incognito && !isStartPage(current)) capturePreview(current);
+        buildSpaceChips();
         tabsAdapter.notifyDataSetChanged();
         tabSwitcher.setVisibility(View.VISIBLE);
         hideKeyboard();
@@ -1602,52 +1648,80 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
 
     // ---------- Session persistence ----------
 
+    /** Restores tabs (with their spaces) saved by {@link #saveSession}.
+     *  Legacy "a||b" sessions land in the default space. */
     private void restoreSession() {
         String saved = prefs.savedTabs();
         int index = prefs.savedTabIndex();
         int opened = 0;
-        if (saved != null && !saved.isEmpty()) {
+        if (saved != null && saved.startsWith("[")) {
+            try {
+                JSONArray arr = new JSONArray(saved);
+                for (int i = 0; i < arr.length() && opened < MAX_RESTORED_TABS; i++) {
+                    JSONObject o = arr.optJSONObject(i);
+                    if (o == null) continue;
+                    String u = o.optString("u", "");
+                    String sp = o.optString("sp", Spaces.DEFAULT_ID);
+                    if (u.isEmpty()) continue;
+                    if (spaces.get(sp) == null) sp = Spaces.DEFAULT_ID;
+                    openTab(u, false, sp);
+                    opened++;
+                }
+            } catch (Exception ignored) {}
+        } else if (saved != null && !saved.isEmpty()) {
             for (String u : saved.split("\\|\\|")) {
                 if (u == null || u.trim().isEmpty()) continue;
                 if (opened >= MAX_RESTORED_TABS) break;
-                openTab(u.trim(), false);
+                openTab(u.trim(), false, Spaces.DEFAULT_ID);
                 opened++;
             }
         }
         if (opened == 0) {
             openTab(null, false);
         } else {
-            int target = Math.max(0, Math.min(index, opened - 1));
-            tabs.setCurrent(target);
+            tabs.setCurrent(Math.max(0, Math.min(index, opened - 1)));
+            // Land in the active space: jump to one of its tabs, or open a
+            // fresh one there so the chrome always matches the chips.
+            Tab cur = tabs.currentTab();
+            if (cur != null && !cur.incognito && !spaces.activeId().equals(cur.spaceId)) {
+                int idx = firstTabInSpace(spaces.activeId());
+                if (idx >= 0) tabs.setCurrent(idx);
+                else openTab(null, false);
+            }
             showCurrentWebView();
             loadPending(tabs.currentTab());
             updateChrome(tabs.currentTab());
         }
     }
 
+    /** Persists every non-incognito tab with its space id. */
     private void saveSession() {
-        StringBuilder sb = new StringBuilder();
-        int current = 0;
-        int i = 0;
-        for (Tab t : tabs.tabs()) {
-            if (t.incognito) continue;
-            String u = t.url == null ? "" : t.url;
-            if (u.startsWith("data:")) u = HOME_URL;
-            if (sb.length() > 0) sb.append("||");
-            if (i == tabs.current()) current = i;
-            sb.append(u);
-            i++;
-            if (i >= MAX_RESTORED_TABS) break;
-        }
-        prefs.savedTabs(sb.toString());
-        prefs.savedTabIndex(current);
+        try {
+            JSONArray arr = new JSONArray();
+            int current = 0;
+            int i = 0;
+            for (Tab t : tabs.tabs()) {
+                if (t.incognito) continue;
+                String u = t.url == null ? "" : t.url;
+                if (u.startsWith("data:")) u = HOME_URL;
+                if (i == tabs.current()) current = i;
+                JSONObject o = new JSONObject();
+                o.put("u", u);
+                o.put("sp", t.spaceId == null ? Spaces.DEFAULT_ID : t.spaceId);
+                arr.put(o);
+                i++;
+                if (i >= MAX_RESTORED_TABS) break;
+            }
+            prefs.savedTabs(arr.toString());
+            prefs.savedTabIndex(current);
+        } catch (Exception ignored) {}
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         saveSession();
-        CookieManager.getInstance().flush();
+        SpaceProfiles.flushAll(spaces.all());
     }
 
     @Override
@@ -1669,6 +1743,250 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         }
         Tab t = tabs.currentTab();
         if (t != null) updateChrome(t);
+    }
+
+    // ---------- Zerium Spaces ----------
+
+    private void persistSpaces() {
+        prefs.spacesJson(spaces.dump());
+    }
+
+    /** Open normal tabs currently living in a space. */
+    private int countForSpace(String spaceId) {
+        int n = 0;
+        for (Tab t : tabs.tabs()) {
+            if (!t.incognito && spaceId.equals(t.spaceId)) n++;
+        }
+        return n;
+    }
+
+    private int firstTabInSpace(String spaceId) {
+        for (int i = 0; i < tabs.tabs().size(); i++) {
+            Tab t = tabs.tabs().get(i);
+            if (!t.incognito && spaceId.equals(t.spaceId)) return i;
+        }
+        return -1;
+    }
+
+    /** Rebuilds the switcher's space chip row (tabs of each space, active
+     *  highlighted, plus a new-space chip). Long-press opens the manager. */
+    private void buildSpaceChips() {
+        if (spaceChips == null) return;
+        spaceChips.removeAllViews();
+        float d = getResources().getDisplayMetrics().density;
+        String activeId = spaces.activeId();
+        for (final Spaces.Space sp : spaces.all()) {
+            spaceChips.addView(spaceChip(sp.name + "  \u00b7  " + countForSpace(sp.id),
+                    sp.id.equals(activeId), d,
+                    () -> switchSpace(sp),
+                    () -> showSpacesSheet()));
+        }
+        spaceChips.addView(spaceChip("\u002b " + getString(R.string.spaces_new), false, d,
+                this::showNewSpaceDialog, null));
+    }
+
+    private TextView spaceChip(String text, boolean active, float d,
+                               Runnable onClick, Runnable onLongClick) {
+        TextView chip = new TextView(this);
+        chip.setText(text);
+        chip.setTextSize(13);
+        chip.setSingleLine(true);
+        chip.setPadding((int) (13 * d), (int) (6 * d), (int) (13 * d), (int) (6 * d));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(20 * d);
+        bg.setColor(ContextCompat.getColor(this, active
+                ? R.color.primary : R.color.surface_container_high));
+        chip.setBackground(bg);
+        chip.setTextColor(ContextCompat.getColor(this, active
+                ? R.color.on_primary : R.color.on_surface));
+        chip.setOnClickListener(v -> onClick.run());
+        if (onLongClick != null) {
+            chip.setOnLongClickListener(v -> {
+                onLongClick.run();
+                return true;
+            });
+        }
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, (int) (8 * d), 0);
+        chip.setLayoutParams(lp);
+        return chip;
+    }
+
+    /** Switches to a space: re-filters the switcher and focuses one of its
+     *  tabs (or opens a fresh one there). In-process — every space's tabs
+     *  and profiles stay alive on this edition. */
+    private void switchSpace(Spaces.Space sp) {
+        if (sp == null || sp.id.equals(spaces.activeId())) return;
+        spaces.setActive(sp.id);
+        persistSpaces();
+        tabsAdapter.setActiveSpaceId(sp.id);
+        int idx = firstTabInSpace(sp.id);
+        if (idx < 0) {
+            openTab(null, false);
+        } else {
+            tabs.setCurrent(idx);
+            showCurrentWebView();
+            loadPending(tabs.currentTab());
+            updateChrome(tabs.currentTab());
+        }
+        tabsAdapter.notifyDataSetChanged();
+        buildSpaceChips();
+        toast(getString(R.string.spaces_switched, sp.name));
+    }
+
+    private void showSpacesSheet() {
+        SpacesSheet.show(this, new SpacesSheet.Host() {
+            @Override
+            public Spaces spaces() {
+                return spaces;
+            }
+
+            @Override
+            public int tabCount(String spaceId) {
+                return countForSpace(spaceId);
+            }
+
+            @Override
+            public String footerText() {
+                return SpaceProfiles.supported()
+                        ? getString(R.string.spaces_footer_webview)
+                        : getString(R.string.spaces_isolated_unsupported);
+            }
+
+            @Override
+            public void onSwitch(Spaces.Space space) {
+                switchSpace(space);
+            }
+
+            @Override
+            public void onNewSpace() {
+                showNewSpaceDialog();
+            }
+
+            @Override
+            public void onRename(Spaces.Space space) {
+                showRenameDialog(space);
+            }
+
+            @Override
+            public void onDelete(Spaces.Space space) {
+                deleteSpace(space);
+            }
+        });
+    }
+
+    private void showNewSpaceDialog() {
+        SpacesSheet.promptNewSpace(this, SpaceProfiles.supported(), (name, isolated) -> {
+            Spaces.Space sp = spaces.create(name, isolated && SpaceProfiles.supported());
+            if (sp == null) return;
+            persistSpaces();
+            buildSpaceChips();
+            toast(R.string.spaces_created);
+        });
+    }
+
+    private void showRenameDialog(final Spaces.Space sp) {
+        SpacesSheet.promptRename(this, sp.name, (name, unused) -> {
+            spaces.rename(sp.id, name);
+            persistSpaces();
+            buildSpaceChips();
+        });
+    }
+
+    private void deleteSpace(final Spaces.Space sp) {
+        if (sp == null || sp.id.equals(Spaces.DEFAULT_ID)) {
+            toast(R.string.spaces_default_locked);
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.spaces_delete_title, sp.name))
+                .setMessage(getString(R.string.spaces_delete_confirm,
+                        sp.name, countForSpace(sp.id)))
+                .setPositiveButton(R.string.delete, (dlg, w) -> reallyDeleteSpace(sp))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void reallyDeleteSpace(Spaces.Space sp) {
+        // Close the space's tabs first: the engine refuses profile deletion
+        // while living WebViews hold it.
+        int i = 0;
+        while (i < tabs.tabs().size()) {
+            Tab t = tabs.tabs().get(i);
+            if (!t.incognito && sp.id.equals(t.spaceId)) {
+                webContainer.removeView(t.webView);
+                tabs.remove(t);
+                t.destroy();
+            } else {
+                i++;
+            }
+        }
+        if (!SpaceProfiles.deleteProfileData(sp.id)) {
+            // Engine still holds a reference — retry on next launch before
+            // anything resolves the profile.
+            String pending = prefs.pendingSpaceProfiles();
+            String name = SpaceProfiles.profileName(sp.id);
+            if (!pending.contains(name)) {
+                prefs.pendingSpaceProfiles(pending.isEmpty() ? name : pending + "," + name);
+            }
+        }
+        spaces.remove(sp.id);
+        persistSpaces();
+        tabsAdapter.setActiveSpaceId(spaces.activeId());
+        if (tabs.count() == 0) openTab(null, false);
+        else {
+            showCurrentWebView();
+            loadPending(tabs.currentTab());
+            updateChrome(tabs.currentTab());
+        }
+        tabsAdapter.notifyDataSetChanged();
+        buildSpaceChips();
+        toast(R.string.spaces_deleted);
+    }
+
+    /** Long-press on a tab card: move it to another space. Moving across an
+     *  isolation boundary recreates the tab (the engine cannot migrate a
+     *  live WebView between cookie jars), same-profile moves just re-tag. */
+    private void showMoveTabDialog(final Tab t) {
+        if (t.incognito) {
+            toast(R.string.spaces_no_incognito);
+            return;
+        }
+        final java.util.List<Spaces.Space> targets = new java.util.ArrayList<>();
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (Spaces.Space sp : spaces.all()) {
+            if (sp.id.equals(t.spaceId)) continue;
+            targets.add(sp);
+            names.add(sp.isolated ? sp.name + "  \u00b7  "
+                    + getString(R.string.spaces_badge_isolated) : sp.name);
+        }
+        if (targets.isEmpty()) return;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.spaces_move_title)
+                .setMessage(R.string.spaces_move_note)
+                .setItems(names.toArray(new String[0]), (dlg, which) ->
+                        moveTabToSpace(t, targets.get(which)))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void moveTabToSpace(Tab t, Spaces.Space target) {
+        if (t == null || target == null || target.id.equals(t.spaceId)) return;
+        Spaces.Space source = spaces.get(t.spaceId);
+        boolean sameProfile = !SpaceProfiles.isIsolated(source) && !SpaceProfiles.isIsolated(target);
+        if (sameProfile) {
+            t.spaceId = target.id;
+            persistSpaces();
+            tabsAdapter.notifyDataSetChanged();
+            buildSpaceChips();
+            return;
+        }
+        String url = (t.url == null || t.url.isEmpty())
+                ? (t.pendingUrl != null ? t.pendingUrl : HOME_URL) : t.url;
+        closeTab(t);
+        openTab(url, false, target.id);
+        buildSpaceChips();
     }
 
     // ---------- Downloads ----------
@@ -1828,6 +2146,10 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
 
     private void toast(int res) {
         Toast.makeText(this, res, Toast.LENGTH_SHORT).show();
+    }
+
+    private void toast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 
     private void exitFullscreen() {

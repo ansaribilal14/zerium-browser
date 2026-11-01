@@ -1,5 +1,9 @@
 # Roadmap
 
+## Shipped in v1.10.0 (2026-11)
+
+- Zerium Spaces: tab groups with per-space logins. Isolated spaces map to WebView multi-profile engine profiles (own cookie jar, site storage, service workers); non-isolated spaces organize tabs on the shared default profile. Space switcher chips + manager sheet (switch/rename/delete with data wipe), move-tab-between-spaces (cross-isolation moves reload with the target space's cookies), space-aware "Delete browsing data" and a runtime capability check that disables isolation honestly on older WebView providers.
+
 ## Shipped in v1.6.0 (2026-09)
 
 - Site settings panel: per-site JavaScript, per-site blocking exemption and per-site desktop-mode memory (the per-site desktop *memory* piece of the old "site panel" item; per-site cookies are honestly impossible on the WebView engine and are not offered).

@@ -127,4 +127,14 @@ public class Prefs {
     public void savedTabs(String v) { sp.edit().putString("saved_tabs", v == null ? "" : v).apply(); }
     public int savedTabIndex() { return sp.getInt("saved_tab_index", 0); }
     public void savedTabIndex(int v) { sp.edit().putInt("saved_tab_index", v).apply(); }
+
+    // Zerium Spaces
+    /** Persisted spaces document (see Spaces.dump/load); includes the active id. */
+    public String spacesJson() { return sp.getString("spaces_json", ""); }
+    public void spacesJson(String v) { sp.edit().putString("spaces_json", v == null ? "" : v).apply(); }
+    /** Engine profile names whose deletion the engine refused last session. */
+    public String pendingSpaceProfiles() { return sp.getString("space_profiles_pending", ""); }
+    public void pendingSpaceProfiles(String v) {
+        sp.edit().putString("space_profiles_pending", v == null ? "" : v).apply();
+    }
 }

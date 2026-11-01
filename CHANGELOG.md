@@ -9,6 +9,30 @@ Stable builds are published as immutable releases on version tags (see [Releases
 ### Planned
 - Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
 - GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
+- Spaces follow-ups: per-space colored identities, space-aware start-page tiles, drag-and-drop tab reassignment.
+
+## [1.10.0] — 2026-11-01
+
+The Zerium Spaces release: tab groups with per-space logins — one isolated space per identity, so the same site can stay signed in with different accounts at the same time.
+
+### Added
+- **Zerium Spaces** — a Spaces entry in the menu and a chip bar in the tab switcher list every space with its live tab count. Tap a chip (or a space in the manager sheet) to switch; the switcher shows the active space's tabs, plus incognito tabs, which belong to no space. New tabs open into the active space automatically.
+- **Isolated spaces** — creating a space can turn on Isolation: the space then gets its own engine profile through the WebView multi-profile API, with its own cookie jar, site storage (localStorage/IndexedDB) and service workers. Log in to Gmail as user A in one space and user B in another; closing tabs or the app never signs either out, and deleting one space never touches the others.
+- **Space management** — the manager sheet supports rename and delete with an explicit confirmation (tabs close and the space's saved logins/site data are erased; other spaces keep their sessions); the default space can be renamed but not deleted or isolated.
+- **Move tabs between spaces** — long-press a tab card to move it. Moves that cross an isolation boundary reload the tab with the target space's cookies (the engine cannot migrate a live WebView between cookie jars); moves between non-isolated spaces re-tag instantly.
+- **Profile cleanup** — deleting an isolated space deletes its engine profile and data; if the engine refuses (lingering references) the deletion is retried on the next launch before anything touches the profile.
+- **Delete browsing data is space-aware** — cookies/site storage now clear across the default jar AND every isolated space's profile.
+
+### Changed
+- "Close all" in the tab switcher now closes the current space's tabs (the scope the switcher shows) instead of every space.
+- Session persistence saves each tab's space; legacy saved sessions restore into the default space unchanged.
+
+### Honest scope
+- Isolation needs a recent WebView provider (the multi-profile feature is checked at runtime). When the device's WebView is too old, spaces still organize tabs but the isolation toggle is disabled up front with a clear message — the browser never pretends cookies are separated when they are not.
+- The default space and non-isolated spaces share the default profile: they group tabs without splitting logins, by design.
+- The system-level HTTP-auth credential store is not per-profile on this engine; form autofill is delegated to your system credential manager (see the password note in `docs/PRIVACY.md`).
+- Incognito tabs stay outside spaces (they skip history and never persist), so they are reachable from every space's switcher.
+- The YouTube suppression pipeline, cosmetic filter and blocklists are untouched (21/21 YouTube suite green).
 
 ## [1.9.0] — 2026-09-20
 
