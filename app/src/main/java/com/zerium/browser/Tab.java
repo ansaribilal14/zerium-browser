@@ -23,6 +23,8 @@ public class Tab {
     public String pendingUrl;
     /** Zerium Space this tab belongs to (never null; see {@link Spaces}). */
     public String spaceId = Spaces.DEFAULT_ID;
+    /** Tab group inside the tab's space (null = ungrouped; see {@link TabGroups}). */
+    public String groupId;
     /** Blocked network requests counted for the currently loaded page. */
     public volatile long blockedOnPage;
     /** True when cosmetic rules were already injected at document start for this tab. */

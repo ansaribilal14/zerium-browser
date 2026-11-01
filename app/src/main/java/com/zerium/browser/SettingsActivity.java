@@ -1,7 +1,9 @@
 package com.zerium.browser;
 
 import android.app.AlertDialog;
+import android.app.RoleManager;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.content.ContextCompat;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,6 +24,8 @@ import java.util.Locale;
 
 /** Settings: search engines, blocking, privacy, behaviour, appearance, data. */
 public class SettingsActivity extends AppCompatActivity {
+
+    private static final int REQ_DEFAULT_BROWSER = 51;
 
     private Prefs prefs;
 
@@ -175,6 +180,12 @@ public class SettingsActivity extends AppCompatActivity {
         });
         findViewById(R.id.rowAppearance).setOnClickListener(v ->
                 startActivity(new Intent(this, com.zerium.browser.ui.AppearanceActivity.class)));
+
+        // Links: default browser role + where incoming links open
+        findViewById(R.id.rowDefaultBrowser).setOnClickListener(v -> requestDefaultBrowser());
+        updateDefaultBrowserStatus();
+        findViewById(R.id.rowExternalLinks).setOnClickListener(v -> pickExternalLinks());
+        updateExternalLinksValue();
 
         // Data
         findViewById(R.id.rowClearHistory).setOnClickListener(v -> confirm(R.string.clear_history_title, () -> {
@@ -511,6 +522,95 @@ public class SettingsActivity extends AppCompatActivity {
         super.onResume();
         // Coming back from the system autofill screen, refresh the status.
         updateAutofillStatus();
+        // Coming back from the system default-apps screen or the role dialog.
+        updateDefaultBrowserStatus();
+    }
+
+    // ---------- Default browser / external links ----------
+
+    /**
+     * Asks Android to make Zerium the default browser via RoleManager on
+     * Android 10+. The app can only request the role — the system owns the
+     * dialog — and older versions land in the system default-apps settings.
+     */
+    private void requestDefaultBrowser() {
+        if (Build.VERSION.SDK_INT >= 29) {
+            RoleManager rm = getSystemService(RoleManager.class);
+            if (rm != null && rm.isRoleAvailable(RoleManager.ROLE_BROWSER)
+                    && !rm.isRoleHeld(RoleManager.ROLE_BROWSER)) {
+                try {
+                    startActivityForResult(
+                            rm.createRequestRoleIntent(RoleManager.ROLE_BROWSER),
+                            REQ_DEFAULT_BROWSER);
+                    return;
+                } catch (Exception ignored) { }
+            }
+            if (rm != null && rm.isRoleHeld(RoleManager.ROLE_BROWSER)) {
+                Toast.makeText(this, R.string.default_browser_on, Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        openDefaultAppsSettings();
+    }
+
+    private void openDefaultAppsSettings() {
+        try {
+            startActivity(new Intent(
+                    android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS));
+            Toast.makeText(this, R.string.default_browser_open_settings,
+                    Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            try {
+                startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS));
+            } catch (Exception ignored) { }
+        }
+    }
+
+    private void updateDefaultBrowserStatus() {
+        TextView value = findViewById(R.id.valueDefaultBrowser);
+        boolean held = false;
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                RoleManager rm = getSystemService(RoleManager.class);
+                held = rm != null && rm.isRoleHeld(RoleManager.ROLE_BROWSER);
+            } catch (Exception ignored) { }
+        }
+        value.setText(held ? R.string.default_browser_on : R.string.default_browser_set);
+        value.setTextColor(held
+                ? ContextCompat.getColor(this, R.color.on_surface_variant)
+                : ContextCompat.getColor(this, R.color.primary));
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_DEFAULT_BROWSER) {
+            updateDefaultBrowserStatus();
+            if (resultCode == RESULT_OK) {
+                Toast.makeText(this, R.string.default_browser_toast, Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void pickExternalLinks() {
+        TextView value = findViewById(R.id.valueExternalLinks);
+        String[] modes = getResources().getStringArray(R.array.external_link_modes);
+        int current = Math.max(0, Math.min(prefs.externalLinks(), modes.length - 1));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.external_links)
+                .setSingleChoiceItems(modes, current, (d, which) -> {
+                    prefs.externalLinks(which);
+                    value.setText(modes[which]);
+                    d.dismiss();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void updateExternalLinksValue() {
+        String[] modes = getResources().getStringArray(R.array.external_link_modes);
+        int current = Math.max(0, Math.min(prefs.externalLinks(), modes.length - 1));
+        ((TextView) findViewById(R.id.valueExternalLinks)).setText(modes[current]);
     }
 
     private void confirm(int titleRes, Runnable action) {

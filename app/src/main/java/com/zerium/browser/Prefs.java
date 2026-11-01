@@ -132,6 +132,21 @@ public class Prefs {
     /** Persisted spaces document (see Spaces.dump/load); includes the active id. */
     public String spacesJson() { return sp.getString("spaces_json", ""); }
     public void spacesJson(String v) { sp.edit().putString("spaces_json", v == null ? "" : v).apply(); }
+
+    // Zerium Tab Groups (inside Spaces)
+    /** Persisted tab-group document (see TabGroups.dump/load). */
+    public String tabGroupsJson() { return sp.getString("tab_groups_json", ""); }
+    public void tabGroupsJson(String v) {
+        sp.edit().putString("tab_groups_json", v == null ? "" : v).apply();
+    }
+
+    // External links
+    /** Where links from other apps open: 0 default space, 1 current space, 2 ask. */
+    public static final int LINKS_DEFAULT = 0;
+    public static final int LINKS_CURRENT = 1;
+    public static final int LINKS_ASK = 2;
+    public int externalLinks() { return sp.getInt("external_links", LINKS_DEFAULT); }
+    public void externalLinks(int v) { sp.edit().putInt("external_links", v).apply(); }
     /** Engine profile names whose deletion the engine refused last session. */
     public String pendingSpaceProfiles() { return sp.getString("space_profiles_pending", ""); }
     public void pendingSpaceProfiles(String v) {

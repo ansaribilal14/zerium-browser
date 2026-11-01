@@ -9,8 +9,22 @@ Stable builds are published as immutable releases on version tags (see [Releases
 ### Planned
 - Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
 - GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
-- Spaces follow-ups: per-space colored identities, space-aware start-page tiles, drag-and-drop tab reassignment.
+- Spaces follow-ups: per-space colored identities, space-aware start-page tiles.
 - Anti-adblock follow-ups: remote rule updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
+
+## [1.12.0] — 2026-11-01
+
+The "tab groups inside Spaces + a real Android browser citizen" release. Two features that make Spaces easier to live in and Zerium easier to live with.
+
+### Added
+- **Tab Groups inside Spaces** — Chrome-style drag-and-drop grouping within the active space. Long-press a card and drag: drop it on another tab to start a group, on a group's header or a member to join that group, on the "Ungrouped" header or empty space to ungroup, and on a Space chip to move it to that space. Groups render as coloured header rows (8-colour palette) with a live tab count and a collapse chevron; collapsed groups keep their tabs running. Long-press a header to rename, recolour or ungroup all.
+- **Sessions are never recreated for organization** — grouping is pure metadata (`Tab.groupId`): moving tabs between groups never touches the WebView, its history, scroll position or the space's login profile. Groups persist per space, survive session restore, and disappear when their last member leaves.
+- **Default browser support** — Settings → Links → "Default browser" requests `RoleManager.ROLE_BROWSER` on Android 10+, so Zerium appears in other apps' link choosers and can be set as the system default. Below Android 10 the row opens the system default-apps screen. The app only requests the role — Android owns the dialog.
+- **External links open in** (Settings → Links) — where links handed over by other apps land: *Default space* (default), *Current space*, or *Ask every time* with a space picker. Only http(s) URLs are accepted, so an incoming link can never silently land in an isolated space's cookies.
+
+### Notes
+- Quick long-press (no drag) on a tab card keeps the old behaviour: the move-to-space dialog. Incognito tabs stay out of groups, as they stay out of spaces.
+- Feature specs live in `docs/issues/` (the repo token cannot open GitHub issues).
 
 ## [1.11.0] — 2026-11-01
 
