@@ -1,5 +1,13 @@
 # Roadmap
 
+## Follow-ups (queued)
+
+- Anti-adblock: remote updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
+
+## Shipped in v1.11.0 (2026-11)
+
+- Anti-adblock bypass ("Zerium Protection"): a dedicated layer for sites that detect ad blockers and wall themselves off. Known detector scripts (CHP Ads Block Detector, blockadblock, killadblock, detectadblock, Admiral, ads-recover, anti-adblock killers) are blocked from a curated list (non-main-frame only); the in-page engine runs at document start, installs bait countermeasures (no API spoofing), removes walls above a structural + text confidence threshold, and watches with a MutationObserver for late walls. Safety vetos keep consent dialogs, paywalls, logins and CAPTCHAs untouched. "Zerium Protection" panel with the four toggles plus a per-site "Fix this site" aggressive mode.
+
 ## Shipped in v1.10.0 (2026-11)
 
 - Zerium Spaces: tab groups with per-space logins. Isolated spaces map to WebView multi-profile engine profiles (own cookie jar, site storage, service workers); non-isolated spaces organize tabs on the shared default profile. Space switcher chips + manager sheet (switch/rename/delete with data wipe), move-tab-between-spaces (cross-isolation moves reload with the target space's cookies), space-aware "Delete browsing data" and a runtime capability check that disables isolation honestly on older WebView providers.

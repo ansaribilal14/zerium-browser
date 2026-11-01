@@ -137,4 +137,17 @@ public class Prefs {
     public void pendingSpaceProfiles(String v) {
         sp.edit().putString("space_profiles_pending", v == null ? "" : v).apply();
     }
+
+    // Zerium Protection > Anti-adblock bypass
+    /** Master switch for the anti-adblock bypass layer. */
+    public boolean antiAdblock() { return sp.getBoolean("anti_adblock", true); }
+    public void antiAdblock(boolean v) { sp.edit().putBoolean("anti_adblock", v).apply(); }
+    /** MutationObserver recovery for walls that appear after page load. */
+    public boolean antiAdblockAuto() { return sp.getBoolean("anti_adblock_auto", true); }
+    public void antiAdblockAuto(boolean v) { sp.edit().putBoolean("anti_adblock_auto", v).apply(); }
+    /** Hosts where "Fix this site" lowered the removal threshold (per-site list). */
+    public String antiAdblockFixSites() { return sp.getString("anti_adblock_fix_sites", ""); }
+    public void antiAdblockFixSites(String v) {
+        sp.edit().putString("anti_adblock_fix_sites", v == null ? "" : v).apply();
+    }
 }

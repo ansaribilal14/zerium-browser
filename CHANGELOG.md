@@ -10,6 +10,26 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Local export/import of user data (bookmarks, history, allowlist, per-site settings) — the honest, serverless alternative to sync (see `docs/SYNC_EVALUATION.md`).
 - GeckoView engine track (v2.0): Phase-0 spike is in-repo and green in CI; the remaining phases follow `docs/GECKOVIEW_MIGRATION.md` behind the decision gate. WebExtensions support, engine-level blocking, per-profile cookie isolation.
 - Spaces follow-ups: per-space colored identities, space-aware start-page tiles, drag-and-drop tab reassignment.
+- Anti-adblock follow-ups: remote rule updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
+
+## [1.11.0] — 2026-11-01
+
+The Anti-Adblock Bypass release ("Zerium Protection"): websites that detect ad blockers and wall themselves off ("Ads Blocker Detected!!!", full-screen overlays, scroll locks, countdown screens) are handled by a dedicated protection layer — while ad blocking itself stays on.
+
+### Added
+- **Anti-adblock bypass layer** — a fourth protection component beside network blocking, cosmetic filtering and YouTube suppression. It runs in-page at document start via `WebViewCompat.addDocumentStartJavaScript`, so countermeasures are in place before any detection script executes.
+- **Known detector scripts are blocked at the network level** — a curated rule list (`AntiAdblockRules`) covering specific detector families (CHP Ads Block Detector, blockadblock, killadblock, detectadblock, Admiral/getadmiral, ads-recover, anti-adblock killers). Main-frame navigations are never matched. Walls whose detector script is blocked never arm (their overlay markup stays hidden).
+- **Confidence-based wall removal** — full-viewport fixed overlays are scored structurally (coverage, z-index, backdrop/blur, dialog semantics, scroll lock) and by text signals; walls are removed only above a confidence threshold. Elements with randomized class names (like the CHP widget) are matched this way.
+- **Detection countermeasures without API spoofing** — hidden bait elements are installed before page scripts run; if a detector tampers with them, they are re-asserted and the removal confidence rises. No global `fetch`/XHR API is ever wrapped or spoofed.
+- **Automatic recovery** — a MutationObserver watches for walls injected or revealed seconds after page load (pre-rendered hidden overlays being flipped visible included), with capped re-removal.
+- **Zerium Protection sheet** — the "Blocked on this page" menu entry is now a full panel: Ad blocking, Anti-adblock bypass, Cosmetic filtering and Automatic recovery switches, block statistics, allow-this-site, and **Fix this site** — a per-host aggressive mode (lower removal threshold, persisted) for sites the automatic confidence bar does not clear.
+- **Safety vetos (by design)** — cookie-consent dialogs, paywall/subscription prompts, login screens (password fields) and CAPTCHA elements are never removed, in any mode. No blanket keyword hiding: the word "ads" alone never removes anything.
+
+### Honest scope
+- The engine needs document-start script support (the standard WebView capability check); on the rare older WebView without it, the same engine is injected at page finish instead — late walls are still handled, but countermeasures no longer run before detection scripts.
+- Best-effort by design: heavily obfuscated, server-rendered or fingerprint-based walls may not clear. "Fix this site" lowers the threshold for that host but never guarantees success, and it never bypasses paywalls, logins or CAPTCHAs — those are protected by hard vetos.
+- The detector-script list is curated by hand and bundled with the app; remote updates are queued on the roadmap.
+- Browsing-session protection only: this is not device-level anonymity and not an ad-blocker "fingerprint normalizer".
 
 ## [1.10.0] — 2026-11-01
 

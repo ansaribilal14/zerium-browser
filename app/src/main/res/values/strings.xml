@@ -66,6 +66,21 @@
     <string name="security_secure">Encrypted connection (HTTPS)</string>
     <string name="security_insecure">Not encrypted (HTTP): anything you send can be read on the network</string>
     <string name="security_body">%1$s\n\nAds and trackers blocked on this page: %2$d</string>
+    <!-- Zerium Protection sheet (anti-adblock bypass) -->
+    <string name="protection_title">Zerium Protection</string>
+    <string name="protection_ads">Ad blocking\nBlock advertisements and trackers</string>
+    <string name="protection_aa">Anti-adblock bypass\nHandle websites that block ad-blocking users</string>
+    <string name="protection_cosmetic">Cosmetic filtering\nRemove unwanted page elements</string>
+    <string name="protection_auto">Automatic recovery\nDetect dynamically appearing anti-adblock overlays</string>
+    <string name="protection_fix">Fix this site</string>
+    <string name="protection_fix_hint">Retries this site with aggressive, site-specific anti-adblock rules</string>
+    <string name="protection_fix_on">Aggressive rules enabled for %1$s</string>
+    <string name="protection_fix_off">Aggressive rules removed for %1$s</string>
+    <string name="protection_aa_off_hint">Anti-adblock bypass is off; detector scripts load normally</string>
+    <string name="protection_stats">Blocked on this page: %1$d · this session: %2$d · all time: %3$d</string>
+    <string name="protection_note">Bypass targets ad-blocker walls only — never paywalls, logins, CAPTCHAs or cookie consent. No guarantee every site can be handled.</string>
+
+    <!-- legacy alert variants kept for reader compat -->
     <string name="block_info_title">Content blocking</string>
     <string name="block_info_body">Blocked on this page: %1$d\nBlocked this session: %2$d\nBlocked all time: %3$d\n\nNetwork blocking uses the StevenBlack unified hosts list (MIT). In-stream video ads cannot be removed at the network level.</string>
     <string name="find_in_page">Find in page</string>

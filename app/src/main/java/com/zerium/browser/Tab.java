@@ -27,6 +27,8 @@ public class Tab {
     public volatile long blockedOnPage;
     /** True when cosmetic rules were already injected at document start for this tab. */
     public volatile boolean cosmeticAtStart;
+    /** True when the anti-adblock engine was already injected for this tab (any path). */
+    public volatile boolean aabInjected;
     /** Scaled screenshot of the last finished page (tab switcher preview). Never captured for incognito tabs. */
     public Bitmap preview;
 

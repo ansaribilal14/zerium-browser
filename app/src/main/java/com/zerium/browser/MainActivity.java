@@ -43,6 +43,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -571,6 +572,20 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
             w.addJavascriptInterface(new MediaBridge(tab), "__zeriumMedia");
         }
 
+        // Anti-adblock bypass: engine runs at document start, before any page
+        // script, so bait countermeasures are in place before detectors run.
+        try {
+            if (prefs.antiAdblock()
+                    && WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                String aabScript = AntiAdblock.documentStartScript(this, prefs);
+                if (aabScript != null && !aabScript.isEmpty()) {
+                    java.util.Set<String> allOrigins = new java.util.HashSet<>(
+                            java.util.Arrays.asList("http://*/*", "https://*/*"));
+                    WebViewCompat.addDocumentStartJavaScript(w, aabScript, allOrigins);
+                }
+            }
+        } catch (Exception ignored) {}
+
         w.setWebViewClient(new ZeriumWebViewClient(tab));
         w.setWebChromeClient(new ZeriumChromeClient(tab));
         w.setDownloadListener(this::startDownload);
@@ -671,6 +686,22 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
                             new MediaRegistry.Item(u, mtag, "", "", -1));
                 }
             }
+            // Anti-adblock layer: detector scripts are answered with a 404 so
+            // walls that depend on them never arm. Non-main-frame only — a
+            // navigation must never be blocked by this list. Works whether or
+            // not ad blocking is on: this is blocker *detection* blocking.
+            if (prefs.antiAdblock() && !request.isForMainFrame()) {
+                String reqUrl = request.getUrl().toString();
+                if (AntiAdblock.isDetectorUrl(reqUrl)) {
+                    try {
+                        return new WebResourceResponse("text/plain", "utf-8", 404, "Blocked",
+                                Collections.<String, String>emptyMap(),
+                                new ByteArrayInputStream(new byte[0]));
+                    } catch (Exception e) {
+                        return null;
+                    }
+                }
+            }
             if (!prefs.blockAds() || !adBlocker.isReady()) return null;
             String url = request.getUrl().toString();
             String pageUrl = tab.url == null ? "" : tab.url;
@@ -734,6 +765,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
             if (blocked > 0) prefs.addTotalBlocked(blocked);
             injectCosmetic(tab);
             injectYouTube(tab);
+            injectAabFallback(tab);
             injectMediaGrab(view);
             if (tabs.currentTab() == tab) {
                 updateChrome(tab);
@@ -946,6 +978,21 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         if (!YouTubeFilter.matches(Utils.hostOf(tab.url))) return;
         String script = YouTubeFilter.script();
         if (!script.isEmpty()) tab.webView.evaluateJavascript(script, null);
+    }
+
+    /**
+     * Anti-adblock fallback for WebViews without document-start script
+     * support: the engine is injected at page finish instead. Walls that arm
+     * before that point are still caught by the engine's own MutationObserver
+     * and scans; only the before-any-detection-script bait placement is lost.
+     */
+    private void injectAabFallback(Tab tab) {
+        if (!prefs.antiAdblock() || tab.aabInjected
+                || WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) return;
+        String script = AntiAdblock.documentStartScript(this, prefs);
+        if (script == null || script.isEmpty()) return;
+        tab.aabInjected = true;
+        tab.webView.evaluateJavascript(script, null);
     }
 
     private void navigateOmnibox() {
@@ -1197,31 +1244,158 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     }
 
     private void showBlockInfo() {
+        showProtection();
+    }
+
+    /**
+     * Zerium Protection sheet: the four blocking toggles (ad blocking,
+     * anti-adblock bypass, cosmetic filtering, automatic recovery) plus the
+     * per-site "Fix this site" action and the block statistics. Switches that
+     * affect document-start injection reload the current tab; the rest apply
+     * live. Kept programmatic like the site-settings panel.
+     */
+    private void showProtection() {
         Tab t = tabs.currentTab();
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
-                .setTitle(R.string.block_info_title)
-                .setMessage(getString(R.string.block_info_body,
-                        t == null ? 0 : t.blockedOnPage,
-                        sessionBlocked.get(),
-                        prefs.totalBlocked() + (t == null ? 0 : t.blockedOnPage)))
-                .setPositiveButton(R.string.ok, null);
-        if (t != null && !isStartPage(t)) {
-            final String host = Utils.hostOf(t.url);
-            if (host != null && !host.isEmpty()) {
-                b.setNeutralButton(R.string.allow_site, (d, w) -> {
-                    String cur = prefs.allowlist();
-                    String lower = cur == null ? "" : cur.toLowerCase();
-                    if (lower.contains(host)) {
-                        toast(R.string.site_already_allowed);
-                    } else {
-                        prefs.setAllowlist(cur == null || cur.isEmpty() ? host : cur + "\n" + host);
-                        adBlocker.rebuildAllowlist(prefs.allowlist());
-                        toast(R.string.site_allowed);
-                    }
-                });
-            }
+        boolean onPage = t != null && !isStartPage(t);
+        final String host = onPage ? Utils.hostOf(t.url) : null;
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(48, 24, 48, 0);
+
+        TextView stats = new TextView(this);
+        stats.setTextSize(12.5f);
+        stats.setText(getString(R.string.protection_stats,
+                t == null ? 0 : t.blockedOnPage,
+                sessionBlocked.get(),
+                prefs.totalBlocked() + (t == null ? 0 : t.blockedOnPage)));
+        box.addView(stats);
+        box.addView(makeHairline());
+
+        Switch swAds = new Switch(this);
+        swAds.setPadding(0, dp(10), 0, dp(10));
+        swAds.setText(R.string.protection_ads);
+        swAds.setChecked(prefs.blockAds());
+        swAds.setOnCheckedChangeListener((b, v) -> prefs.blockAds(v));
+        box.addView(swAds);
+
+        Switch swAa = new Switch(this);
+        swAa.setPadding(0, dp(10), 0, dp(10));
+        swAa.setText(R.string.protection_aa);
+        swAa.setChecked(prefs.antiAdblock());
+        swAa.setOnCheckedChangeListener((b, v) -> {
+            prefs.antiAdblock(v);
+            reloadIfBlockingChanged(t);
+        });
+        box.addView(swAa);
+
+        Switch swCosmetic = new Switch(this);
+        swCosmetic.setPadding(0, dp(10), 0, dp(10));
+        swCosmetic.setText(R.string.protection_cosmetic);
+        swCosmetic.setChecked(prefs.blockCosmetic());
+        swCosmetic.setOnCheckedChangeListener((b, v) -> {
+            prefs.blockCosmetic(v);
+            reloadIfBlockingChanged(t);
+        });
+        box.addView(swCosmetic);
+
+        Switch swAuto = new Switch(this);
+        swAuto.setPadding(0, dp(10), 0, dp(10));
+        swAuto.setText(R.string.protection_auto);
+        swAuto.setChecked(prefs.antiAdblockAuto());
+        swAuto.setEnabled(prefs.antiAdblock());
+        swAuto.setOnCheckedChangeListener((b, v) -> {
+            prefs.antiAdblockAuto(v);
+            applyLiveAabConfig();
+        });
+        box.addView(swAuto);
+
+        box.addView(makeHairline());
+        TextView fixHint = new TextView(this);
+        fixHint.setTextSize(12f);
+        fixHint.setPadding(0, dp(8), 0, dp(2));
+        fixHint.setText(R.string.protection_fix_hint);
+        box.addView(fixHint);
+        if (!prefs.antiAdblock()) {
+            TextView offHint = new TextView(this);
+            offHint.setTextSize(12f);
+            offHint.setPadding(0, dp(2), 0, dp(2));
+            offHint.setText(R.string.protection_aa_off_hint);
+            box.addView(offHint);
         }
-        b.show();
+
+        TextView note = new TextView(this);
+        note.setTextSize(11.5f);
+        note.setPadding(0, dp(10), 0, 0);
+        note.setText(R.string.protection_note);
+        box.addView(note);
+
+        AlertDialog.Builder b2 = new AlertDialog.Builder(this)
+                .setTitle(R.string.protection_title)
+                .setView(box)
+                .setPositiveButton(R.string.ok, null);
+        if (onPage && host != null && !host.isEmpty()) {
+            b2.setNeutralButton(R.string.protection_fix, (d, w) -> toggleFixSite(host));
+            b2.setNegativeButton(R.string.allow_site, (d, w) -> {
+                String cur = prefs.allowlist();
+                String lower = cur == null ? "" : cur.toLowerCase();
+                if (lower.contains(host)) {
+                    toast(R.string.site_already_allowed);
+                } else {
+                    prefs.setAllowlist(cur == null || cur.isEmpty() ? host : cur + "\n" + host);
+                    adBlocker.rebuildAllowlist(prefs.allowlist());
+                    toast(R.string.site_allowed);
+                }
+            });
+        }
+        b2.show();
+    }
+
+    private View makeHairline() {
+        View v = new View(this);
+        v.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1));
+        v.setBackgroundColor(0x1F888888);
+        return v;
+    }
+
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density);
+    }
+
+    /** "Fix this site" toggle: lower removal threshold for this host + reload. */
+    private void toggleFixSite(String host) {
+        String cur = prefs.antiAdblockFixSites();
+        java.util.List<String> list = AntiAdblockRules.parseFixSites(cur);
+        boolean had = AntiAdblockRules.isFixSite(list, host);
+        if (had) {
+            list.removeIf(s -> s.equals(host) || host.endsWith("." + s) || s.endsWith("." + host));
+            prefs.antiAdblockFixSites(String.join("\n", list));
+            toast(getString(R.string.protection_fix_off, host));
+        } else {
+            list.add(host);
+            prefs.antiAdblockFixSites(String.join("\n", list));
+            toast(getString(R.string.protection_fix_on, host));
+        }
+        applyLiveAabConfig();
+        Tab t = tabs.currentTab();
+        if (t != null && !isStartPage(t)) t.webView.reload();
+    }
+
+    /** Push the current anti-adblock config into every live WebView. */
+    private void applyLiveAabConfig() {
+        String js = AntiAdblock.liveConfigUpdate(prefs);
+        for (Tab tab : tabs.tabs()) {
+            try {
+                tab.webView.evaluateJavascript(js, null);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /** Toggles that change document-start injection need a fresh page. */
+    private void reloadIfBlockingChanged(Tab t) {
+        applyLiveAabConfig();
+        if (t != null && !isStartPage(t)) t.webView.reload();
     }
 
     /**
