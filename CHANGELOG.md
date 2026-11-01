@@ -12,6 +12,20 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Spaces follow-ups: per-space colored identities, space-aware start-page tiles.
 - Anti-adblock follow-ups: remote rule updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
 
+## [1.13.0] — 2026-11-01
+
+Anti-adblock reliability pass plus a two-menu split for the task bar.
+
+### Fixed
+- **Anti-adblock: walls that sit inside theme wrappers are now removed.** Real-world walls (the CHP Ads Block Detector family, as used by medeberiyal.com) are sometimes wrapped by theme containers, so the scanner only looked at direct body children and missed them. Candidate collection now walks a bounded descent (depth 3, 400 nodes) below body children.
+- **Anti-adblock: published widgets are caught by their un-randomizable artifacts.** The CHP wall randomizes every class name, but its branding links (`chpadblock.com`, `toolkitspro.com`) and plugin asset paths cannot be randomized — the scanner now walks up from those stable hits (attribute selectors `[href*=…]`, `[src*=…]`) to the wall container itself. This also covers walls whose admin-customized text no longer matches any known phrase.
+- **Anti-adblock: static page content can never be removed by descendant text.** Removal now requires structural evidence (fixed/absolute overlay covering a significant area) — a theme wrapper that happens to hold hidden wall markup is never nuked, and an article that merely mentions ad blockers stays intact.
+- **Anti-adblock: a proven detector lowers the removal bar.** When a page script is caught attacking the engine's bait elements, weak-text structural overlays are removed without needing "Fix this site".
+- Anti-adblock text signals cover the singular wording ("…using an extension to block ads") seen on real sites, and the detector-URL list includes the CHP pro CDN (`chpadblock.com`). Guard suite extended to 28 cases, including the exact medeberiyal.com wall shape (nested, random classes, plugin icon, custom text).
+
+### Changed
+- **The bottom task bar and the top menu no longer open the same sheet.** The bottom ⋮ opens a compact quick-actions sheet (new tab / incognito / spaces / downloads in the circular row, then bookmarks, history, media, find, desktop site, reader, translate and settings). The top menu keeps the complete list with the quick-nav row (back / forward / refresh / share) and all page tools and app entries. Both routes share the same handlers.
+
 ## [1.12.0] — 2026-11-01
 
 The "tab groups inside Spaces + a real Android browser citizen" release. Two features that make Spaces easier to live in and Zerium easier to live with.
