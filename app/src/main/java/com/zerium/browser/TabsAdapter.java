@@ -2,6 +2,7 @@ package com.zerium.browser;
 
 import android.graphics.Bitmap;
 import android.graphics.drawable.GradientDrawable;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
