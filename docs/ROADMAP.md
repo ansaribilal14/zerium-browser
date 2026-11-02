@@ -5,6 +5,10 @@
 - Anti-adblock: remote updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
 - Spaces follow-ups: per-space colored identities, space-aware start-page tiles; local data export/import.
 
+## Shipped in v1.14.0 (2026-11)
+
+- Chrome-style tab-group UI redesign: the overview now renders one compact group card per group (colour strip, name/count chip, member preview tiles) instead of flat header rows, and every tap opens a dedicated group-detail grid (colour-coded header with overflow, member grid, "New tab in group" that joins the group and the current Space). Group overflow actions are rename, eight-colour swatch palette, ungroup all and delete group; a bare long-press on a tab card opens an add-to-group / remove-from-group / move-to-Space context menu; grouping and ungrouping are drag-and-drop (drop on tab/group card, drag out to empty space). Still pure metadata on `Tab.groupId` — no WebView is ever recreated, Spaces untouched. Spec updated: `docs/issues/tab-groups-inside-spaces.md`.
+
 ## Shipped in v1.13.0 (2026-11)
 
 - Anti-adblock reliability pass: walls nested inside theme wrappers are reached by a bounded descent below body children; published widgets (CHP Ads Block Detector family) are caught by their un-randomizable artifacts (branding hrefs, plugin asset paths) via ancestor walking from attribute-selector hits, covering walls whose admin-customized text matches no known phrase; removal now requires structural evidence so static content and theme wrappers are never nuked by descendant text; a proven bait-tampering detector lowers the removal bar automatically; singular wordings and the CHP pro CDN added to the signal/URL lists. Guard suite: 28 cases including the exact medeberiyal.com wall shape.
@@ -12,7 +16,7 @@
 
 ## Shipped in v1.12.0 (2026-11)
 
-- Tab groups inside Spaces: Chrome-style drag-and-drop grouping within the active space. Pure metadata on the tab model (`Tab.groupId`), so moving tabs between groups never recreates the WebView, its history, scroll position or the space's login profile. Colored collapsible group headers (8-colour palette, rename/recolor/ungroup on long-press), persistence per space, incognito tabs excluded. Spec: `docs/issues/tab-groups-inside-spaces.md`.
+- Tab groups inside Spaces: Chrome-style drag-and-drop grouping within the active space. Pure metadata on the tab model (`Tab.groupId`), so moving tabs between groups never recreates the WebView, its history, scroll position or the space's login profile. Colored collapsible group headers (8-colour palette, rename/recolor/ungroup on long-press), persistence per space, incognito tabs excluded. Spec: `docs/issues/tab-groups-inside-spaces.md` (redesigned to grouped cards + detail grid in v1.14.0).
 - Android browser integration: exported browser activity with `ACTION_VIEW` + `category.BROWSABLE` http/https intent filters; Settings → Links with a `RoleManager.ROLE_BROWSER` default-browser request (Android 10+) and an "External links open in" choice (default space / current space / ask every time with a picker); incoming http(s) links open as a new tab in a legitimate space — never silently into an isolated space's cookies. Spec: `docs/issues/android-browser-integration.md`.
 
 ## Shipped in v1.11.0 (2026-11)

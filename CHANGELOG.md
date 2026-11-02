@@ -12,6 +12,27 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Spaces follow-ups: per-space colored identities, space-aware start-page tiles.
 - Anti-adblock follow-ups: remote rule updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
 
+## [1.14.0] — 2026-11-02
+
+Complete Chrome-style redesign of the tab-group UI (grouped-card overview + dedicated group-detail grid).
+
+### Added
+- **Grouped-card tab overview.** Every group now renders as one compact group card in the tab grid — colour strip, name/count chip row and up to four member page-preview tiles — instead of the old flat full-width header rows. Ungrouped and incognito cards sit directly in the grid; the "Ungrouped" section header is gone. Dropping a grouped tab on empty grid space ungroups it.
+- **Dedicated group-detail grid.** Tapping a group card opens a full detail surface for that group: colour-coded header (back, group chip, overflow menu), a grid of exactly the group's member tabs, and a "New tab in group" action — new tabs created there join that group and the current Space. Dragging a member out onto empty space removes it from the group while the tab (and its WebView) keeps running. The Space chip bar stays reachable; switching Space closes the detail.
+- **Group creation dialog** with an editable title and the eight-colour swatch palette, reachable from "Add to group → New group…" on any tab card.
+- **"Add to group" tab context menu.** A bare long-press on a tab card now opens the tab's context menu: add to an existing group (or a new one), remove from its group, or the classic move-to-another-Space dialog.
+
+### Changed
+- **Group overflow actions** (long-press a group card or the detail header menu) are now: Rename, Group colour (swatch palette), Ungroup all, and **Delete group** — which closes every member tab and removes the group after a confirmation.
+- Group cards and grouped tab cards carry their group colour (strip/dot/border); the collapse chevron retired — a group card is the collapsed form, expansion happens in the detail grid. The persisted `collapsed` flag stays in the model for compatibility.
+
+### Fixed
+- Incognito tabs can no longer be pulled into a group by dropping them on a same-space card (the drop is rejected with the existing "Incognito tabs don't belong to spaces" toast), and dropping a private tab on a Space chip no longer silently re-scopes it.
+
+### Notes
+- Grouping is still metadata only: every path above moves `Tab.groupId` and never recreates a WebView, history, scroll position or the Space's login profile. Spaces are untouched.
+- New pure-JVM layer (`GroupRowPlanner`, `GroupOps`) drives the row layout and the drag/drop decisions; unit tests cover the grouped-card rows, search flattening, Space scoping, detail membership, process-death restoration and the incognito guards (27 tests green via the local ecj+JUnit chain).
+
 ## [1.13.0] — 2026-11-01
 
 Anti-adblock reliability pass plus a two-menu split for the task bar.

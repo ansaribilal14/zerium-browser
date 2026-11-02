@@ -126,16 +126,6 @@
         <item>Current space</item>
         <item>Ask every time</item>
     </string-array>
-    <string-array name="group_colors">
-        <item>@string/group_color_blue</item>
-        <item>@string/group_color_teal</item>
-        <item>@string/group_color_green</item>
-        <item>@string/group_color_yellow</item>
-        <item>@string/group_color_orange</item>
-        <item>@string/group_color_red</item>
-        <item>@string/group_color_pink</item>
-        <item>@string/group_color_purple</item>
-    </string-array>
     <string name="block_master">Block ads and trackers</string>
     <string name="block_master_sub">Network-level blocking with the built-in hosts list</string>
     <string name="text_size">Web text size</string>
@@ -329,23 +319,23 @@
     <string name="spaces_footer_webview">Isolated spaces keep separate logins and site data for every site. \"Close all\" in the switcher clears only the space you\'re in.</string>
 
     <!-- Tab groups (inside Spaces) -->
-    <string name="tab_groups_ungrouped">Ungrouped tabs</string>
-    <string name="tab_groups_ungrouped_hint">Drop a tab here to ungroup</string>
     <string name="group_new_name">New group</string>
+    <string name="group_create_title">New tab group</string>
+    <string name="group_name_hint">Group name</string>
     <string name="group_rename_title">Rename group</string>
     <string name="group_rename">Rename</string>
     <string name="group_colour">Group colour</string>
     <string name="group_ungroup_all">Ungroup all</string>
+    <string name="group_delete_group">Delete group</string>
+    <string name="group_delete_confirm">This closes every tab in the group and deletes the group.</string>
+    <string name="group_detail_empty">No tabs in this group</string>
+    <string name="group_add_tab">New tab in group</string>
+    <string name="group_name_hint">Group name</string>
+    <string name="menu_add_to_group">Add to group</string>
+    <string name="menu_remove_from_group">Remove from group</string>
+    <string name="menu_new_group">New group…</string>
     <string name="group_removed">Group removed</string>
     <string name="group_renamed">Group renamed</string>
-    <string name="group_color_blue">Blue</string>
-    <string name="group_color_teal">Teal</string>
-    <string name="group_color_green">Green</string>
-    <string name="group_color_yellow">Yellow</string>
-    <string name="group_color_orange">Orange</string>
-    <string name="group_color_red">Red</string>
-    <string name="group_color_pink">Pink</string>
-    <string name="group_color_purple">Purple</string>
 
     <!-- Links / default browser -->
     <string name="settings_links">Links</string>

@@ -318,6 +318,14 @@
                     android:paddingBottom="6dp" />
             </HorizontalScrollView>
 
+            <!-- Dedicated group-detail grid (opens when a group card is
+                 tapped); covers the search-less overview grid, Space chip bar
+                 stays reachable above it. -->
+            <include
+                android:id="@+id/groupDetail"
+                layout="@layout/view_group_detail"
+                android:visibility="gone" />
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/tabsGrid"
                 android:layout_width="match_parent"
