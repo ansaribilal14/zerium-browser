@@ -330,7 +330,6 @@
     <string name="group_delete_confirm">This closes every tab in the group and deletes the group.</string>
     <string name="group_detail_empty">No tabs in this group</string>
     <string name="group_add_tab">New tab in group</string>
-    <string name="group_name_hint">Group name</string>
     <string name="menu_add_to_group">Add to group</string>
     <string name="menu_remove_from_group">Remove from group</string>
     <string name="menu_new_group">New group…</string>
