@@ -52,6 +52,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.webkit.WebSettingsCompat;
@@ -71,6 +72,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.net.HttpURLConnection;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -150,6 +153,18 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     private TabGroups.Group detailGroup;
     private ItemTouchHelper groupDragHelper;
     private View newTabFab;
+    // Chrome-style Normal/Incognito switcher mode selector
+    private TextView modeNormalChip, modePrivateChip;
+    private View spaceChipsBar;
+    private boolean switcherPrivate;
+    // Native omnibox suggestions (local history + optional remote)
+    private LinearLayout suggestPanel;
+    private RecyclerView suggestList;
+    private OmniboxSuggestAdapter suggestAdapter;
+    private final android.os.Handler suggestHandler =
+            new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable suggestPending;
+    private final AtomicLong suggestGen = new AtomicLong(0);
 
     // Long-press drag state (tab grouping inside the active space)
     private Tab draggedTab;
@@ -187,6 +202,13 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         String pending = prefs.pendingSpaceProfiles();
         if (pending != null && !pending.isEmpty()) {
             prefs.pendingSpaceProfiles(SpaceProfiles.retryPendingDeletions(pending));
+        }
+        // Same contract for ephemeral Incognito profiles: any registered
+        // profile is an orphan by definition (private tabs never restore),
+        // and the retry runs before any WebView exists.
+        String pendingPriv = prefs.pendingIncognitoProfiles();
+        if (pendingPriv != null && !pendingPriv.isEmpty()) {
+            prefs.pendingIncognitoProfiles(IncognitoProfiles.retryPendingDeletions(pendingPriv));
         }
         engine = DownloadEngine.get(this);
         mediaRegistry = MediaRegistryHolder.get(this);
@@ -299,9 +321,25 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         omnibox.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
                 omnibox.post(() -> omnibox.selectAll());
+                showSuggestPanel();
+                refreshSuggestions(omnibox.getText().toString());
             } else {
+                hideSuggestPanel();
                 updateChrome(tabs.currentTab());
                 hideKeyboard();
+            }
+        });
+        // Debounced native suggestions while typing. Page updates never
+        // overwrite focused text (see updateChrome), and this watcher only
+        // reacts while the omnibox actually has focus.
+        omnibox.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (!omnibox.hasFocus()) return;
+                if (suggestPending != null) suggestHandler.removeCallbacks(suggestPending);
+                suggestPending = () -> refreshSuggestions(s.toString());
+                suggestHandler.postDelayed(suggestPending, 250);
             }
         });
 
@@ -390,13 +428,27 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
             if (detailGroup != null) openTabInGroup(detailGroup);
         });
 
-        findViewById(R.id.btnNewIncognito).setOnClickListener(v -> {
-            hideTabSwitcher();
-            openTab(null, true);
-        });
+        // Chrome-style two-mode selector replaces the standalone incognito
+        // button: Normal shows the active space's tabs and groups, Private
+        // shows only private tabs. Close All follows the selected mode.
+        spaceChipsBar = findViewById(R.id.spaceChipsBar);
+        modeNormalChip = findViewById(R.id.modeNormalChip);
+        modePrivateChip = findViewById(R.id.modePrivateChip);
+        modeNormalChip.setOnClickListener(v -> setSwitcherPrivate(false));
+        modePrivateChip.setOnClickListener(v -> setSwitcherPrivate(true));
+
+        suggestPanel = findViewById(R.id.suggestPanel);
+        suggestList = findViewById(R.id.suggestList);
+        suggestList.setLayoutManager(new LinearLayoutManager(this));
+        suggestAdapter = new OmniboxSuggestAdapter(this::onSuggestionPicked);
+        suggestList.setAdapter(suggestAdapter);
+
         findViewById(R.id.btnSwitcherClose).setOnClickListener(v -> hideTabSwitcher());
         findViewById(R.id.btnCloseAllTabs).setOnClickListener(v -> closeAllTabs());
-        findViewById(R.id.btnCloseIncognito).setOnClickListener(v -> closeAllIncognitoTabs());
+        newTabFab.setOnClickListener(v -> {
+            hideTabSwitcher();
+            openTab(null, switcherPrivate);
+        });
 
         restoreSession();
         handleIntent(getIntent());
@@ -468,14 +520,32 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
 
     /**
      * Opens a tab in a Zerium Space. New normal tabs join the active space;
-     * incognito tabs belong to no space. Isolated spaces get their engine
+     * incognito tabs belong to no space and get a genuine ephemeral profile
+     * (never the default cookie jar). Isolated spaces get their engine
      * profile attached as the very first WebView API call.
      */
     private void openTab(String url, boolean incognito, String spaceId) {
+        if (incognito && !IncognitoProfiles.supported()) {
+            // No honest privacy without multi-profile: refuse instead of
+            // silently sharing the default profile.
+            toast(R.string.incognito_unavailable);
+            return;
+        }
         WebView w = new WebView(this);
         String sp = incognito ? Spaces.DEFAULT_ID
                 : (spaceId != null && spaces.get(spaceId) != null ? spaceId : spaces.activeId());
-        SpaceProfiles.attachProfile(w, incognito ? null : sp);
+        if (incognito) {
+            // FIRST WebView API call: bind the ephemeral session profile.
+            String profile = IncognitoProfiles.acquire(w, System.nanoTime());
+            if (profile == null) {
+                toast(R.string.incognito_unavailable);
+                return;
+            }
+            prefs.pendingIncognitoProfiles(IncognitoProfiles.registerInCsv(
+                    prefs.pendingIncognitoProfiles(), profile));
+        } else {
+            SpaceProfiles.attachProfile(w, sp);
+        }
         w.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         webContainer.addView(w);
@@ -493,6 +563,12 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         int idx = tabs.tabs().indexOf(tab);
         if (idx < 0) return;
         hideFindBar();
+        // Tab switch closes omnibox editing (Chrome behaviour): the focused
+        // text of the old tab must not bleed into the new tab's chrome.
+        if (omnibox.hasFocus()) {
+            omnibox.clearFocus();
+            hideSuggestPanel();
+        }
         tabs.setCurrent(idx);
         showCurrentWebView();
         loadPending(tab);
@@ -522,6 +598,12 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         webContainer.removeView(tab.webView);
         tabs.remove(tab);
         tab.destroy();
+        // Last private tab closed: wipe session data and delete the
+        // ephemeral profile (all private WebViews are already destroyed).
+        if (tab.incognito && GroupRowPlanner.incognitoTabCount(tabs.tabs()) == 0) {
+            prefs.pendingIncognitoProfiles(
+                    IncognitoProfiles.release(prefs.pendingIncognitoProfiles()));
+        }
         if (!tab.incognito && tab.spaceId != null) {
             pruneEmptyGroups(tab.spaceId, null);
             persistGroups();
@@ -543,6 +625,10 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
 
     /** Closes the active space's tabs (the switcher's current view scope). */
     private void closeAllTabs() {
+        if (switcherPrivate) {
+            closeAllIncognitoTabs();
+            return;
+        }
         String scope = spaces.activeId();
         int i = 0;
         while (i < tabs.tabs().size()) {
@@ -568,7 +654,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         buildSpaceChips();
     }
 
-    /** Closes every incognito tab in one step (tab-switcher toolbar action). */
+    /** Closes every incognito tab in one step (private-mode "Close All"). */
     private void closeAllIncognitoTabs() {
         int removed = 0;
         int i = 0;
@@ -582,6 +668,11 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
             } else {
                 i++;
             }
+        }
+        // All private WebViews destroyed above: safe to tear the profile down.
+        if (removed > 0) {
+            prefs.pendingIncognitoProfiles(
+                    IncognitoProfiles.release(prefs.pendingIncognitoProfiles()));
         }
         if (removed == 0) {
             toast(R.string.no_incognito_tabs);
@@ -616,8 +707,15 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         tab.mobileUA = s.getUserAgentString();
         applyWebSettings(s);
         // Space-aware cookie jar: isolated spaces carry their own profile
-        // manager; everything else uses the global (default profile) one.
-        CookieManager cm = SpaceProfiles.cookiesFor(tab.spaceId);
+        // manager; incognito tabs use the ephemeral session profile's jar;
+        // everything else uses the global (default profile) one.
+        CookieManager cm = tab.incognito
+                ? IncognitoProfiles.cookiesFor()
+                : SpaceProfiles.cookiesFor(tab.spaceId);
+        // cookiesFor() is null only if the session profile vanished —
+        // impossible while a private tab is alive, but never silently fall
+        // back to the default jar pretending privacy.
+        if (cm == null) cm = CookieManager.getInstance();
         cm.setAcceptCookie(prefs.cookiesEnabled());
         cm.setAcceptThirdPartyCookies(w, !prefs.thirdPartyCookiesBlocked());
 
@@ -1119,6 +1217,7 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         String text = omnibox.getText().toString().trim();
         if (text.isEmpty()) return;
         hideKeyboard();
+        hideSuggestPanel();
         omnibox.clearFocus();
         Tab t = tabs.currentTab();
         if (t == null) return;
@@ -1131,9 +1230,14 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     }
 
     private boolean isStartPage(Tab tab) {
-        return tab.url == null || tab.url.isEmpty()
+        if (tab.url == null || tab.url.isEmpty()
                 || tab.url.equals(HOME_URL)
-                || tab.url.startsWith("data:");
+                || tab.url.startsWith("data:")) {
+            return true;
+        }
+        // about:blank (and any other about: page) is an internal page, not
+        // a website: empty omnibox, no security dialog, no history, no preview.
+        return tab.url.toLowerCase().startsWith("about:");
     }
 
     // ---------- Chrome (UI) updates ----------
@@ -1145,11 +1249,17 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         // pages unless the user disabled pull-to-refresh entirely.
         swipe.setEnabled(!isStartPage(tab) && prefs.pullToRefresh());
         if (isStartPage(tab)) {
-            omnibox.setText("");
+            if (!omnibox.hasFocus()) { // never clobber user-typed text
+                omnibox.setText("");
+            }
             omnibox.setHint(R.string.search_hint);
             btnSecurity.setImageResource(R.drawable.ic_home);
         } else {
-            omnibox.setText(displayUrl(tab.url));
+            // Redirects, history moves and title changes all funnel here;
+            // the focused user text is never overwritten (Chrome behaviour).
+            if (!omnibox.hasFocus()) {
+                omnibox.setText(displayUrl(tab.url));
+            }
             omnibox.setHint(R.string.search_hint);
             String scheme = Uri.parse(tab.url).getScheme();
             btnSecurity.setImageResource("https".equals(scheme)
@@ -1163,10 +1273,10 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         btnTabs.setText(n > 99 ? "99+" : String.valueOf(n));
     }
 
-    /** Scheme stripped for display; the security icon already carries TLS state. */
+    /** Scheme stripped for display; the security icon already carries TLS state.
+     *  Internal pages (about:*, data:*) display as empty, never as a URL. */
     private static String displayUrl(String url) {
-        if (url == null) return "";
-        return url.replaceFirst("^https?://", "");
+        return Urls.displayUrl(url);
     }
 
     private void showSecurityInfo() {
@@ -1948,11 +2058,150 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
         hideFindBar();
         Tab current = tabs.currentTab();
         if (current != null && !current.incognito && !isStartPage(current)) capturePreview(current);
+        // Opening the switcher lands in the mode of the active tab
+        // (Chrome behaviour): private tab → private pane, otherwise normal.
+        setSwitcherPrivate(current != null && current.incognito);
         buildSpaceChips();
-        tabsAdapter.notifyDataSetChanged();
         tabSwitcher.setVisibility(View.VISIBLE);
         hideKeyboard();
         omnibox.clearFocus();
+    }
+
+    /**
+     * Switches the tab switcher between Normal (active space's regular tabs
+     * + groups; Space chip bar visible) and Private (only private tabs; no
+     * Space chips, no groups — private tabs cannot be grouped). Switching
+     * the mode never touches any session: every WebView stays alive.
+     */
+    private void setSwitcherPrivate(boolean priv) {
+        switcherPrivate = priv;
+        closeGroupDetail();
+        tabsAdapter.setPrivateMode(priv);
+        spaceChipsBar.setVisibility(priv ? View.GONE : View.VISIBLE);
+        updateModeChips();
+        tabsAdapter.notifyDataSetChanged();
+    }
+
+    /** Counts + selected styling of the two selector chips. */
+    private void updateModeChips() {
+        if (modeNormalChip == null || modePrivateChip == null) return;
+        int normal = GroupRowPlanner.normalTabCount(tabs.tabs(), spaces.activeId());
+        int priv = GroupRowPlanner.incognitoTabCount(tabs.tabs());
+        modeNormalChip.setText(getString(R.string.switcher_mode_normal, normal));
+        modePrivateChip.setText(getString(R.string.switcher_mode_private, priv));
+        int sel = ContextCompat.getColor(this, R.color.primary);
+        int unsel = ContextCompat.getColor(this, R.color.on_surface_variant);
+        modeNormalChip.setTextColor(switcherPrivate ? unsel : sel);
+        modePrivateChip.setTextColor(switcherPrivate ? sel : unsel);
+        modeNormalChip.setTypeface(null, switcherPrivate ? android.graphics.Typeface.NORMAL
+                : android.graphics.Typeface.BOLD);
+        modePrivateChip.setTypeface(null, switcherPrivate ? android.graphics.Typeface.BOLD
+                : android.graphics.Typeface.NORMAL);
+    }
+
+    // ---------- Native omnibox suggestions ----------
+
+    private void showSuggestPanel() {
+        if (suggestPanel == null) return;
+        suggestPanel.setVisibility(View.VISIBLE);
+    }
+
+    /** Hides the dropdown and cancels any in-flight remote request. */
+    private void hideSuggestPanel() {
+        if (suggestPanel == null) return;
+        suggestPanel.setVisibility(View.GONE);
+        suggestGen.incrementAndGet();
+        if (suggestPending != null) suggestHandler.removeCallbacks(suggestPending);
+    }
+
+    /**
+     * Rebuilds the dropdown for the current omnibox text: local history and
+     * the current page immediately, remote suggestions asynchronously when
+     * the Search Suggestions setting is enabled. Stale responses are
+     * dropped via the generation counter; offline keeps the local rows.
+     * Incognito: no history lookup and no remote request — only the current
+     * page and the direct action rows.
+     */
+    private void refreshSuggestions(String text) {
+        long gen = suggestGen.incrementAndGet();
+        Tab t = tabs.currentTab();
+        boolean incognito = t != null && t.incognito;
+        List<String[]> local = new ArrayList<>();
+        if (!incognito) {
+            try {
+                for (HistoryDB.Entry e : history.suggest(text, SuggestEngine.MAX_SUGGESTIONS)) {
+                    local.add(new String[]{e.title, e.url});
+                }
+            } catch (Exception ignored) {}
+        }
+        String curTitle = t == null ? null : t.title;
+        String curUrl = t == null || isStartPage(t) ? null : t.url;
+        String engineName = Utils.engineAt(prefs, prefs.searchEngine()).name;
+        List<SuggestEngine.Suggestion> rows = SuggestEngine.merge(
+                curTitle, curUrl, text, local, Collections.emptyList(), engineName);
+        suggestAdapter.submit(rows);
+        suggestList.setVisibility(rows.isEmpty() ? View.GONE : View.VISIBLE);
+        if (incognito || !prefs.searchSuggestions()) return;
+        final Utils.Engine engine = Utils.engineAt(prefs, prefs.searchEngine());
+        final String endpoint = SuggestEngine.remoteUrl(engine, text);
+        if (endpoint == null) return; // custom engines: local only
+        final long sentGen = gen;
+        final List<String[]> sentLocal = local;
+        final String sentTitle = curTitle;
+        final String sentUrl = curUrl;
+        final String sentText = text;
+        new Thread(() -> {
+            List<String> remote = SuggestEngine.parseResponse(httpGet(endpoint));
+            runOnUiThread(() -> {
+                if (suggestGen.get() != sentGen || !omnibox.hasFocus()) return;
+                List<SuggestEngine.Suggestion> merged = SuggestEngine.merge(
+                        sentTitle, sentUrl, sentText, sentLocal, remote, engineName);
+                suggestAdapter.submit(merged);
+                suggestList.setVisibility(merged.isEmpty() ? View.GONE : View.VISIBLE);
+            });
+        }, "zerium-omnibox-suggest").start();
+    }
+
+    /** Blocking GET for suggestion endpoints; null on any failure (offline fallback). */
+    private static String httpGet(String url) {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new java.net.URL(url).openConnection();
+            conn.setConnectTimeout(2500);
+            conn.setReadTimeout(2500);
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) ZeriumSuggest/1");
+            if (conn.getResponseCode() != 200) return null;
+            try (java.io.BufferedReader r = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                StringBuilder sb = new StringBuilder();
+                char[] buf = new char[2048];
+                int n;
+                while ((n = r.read(buf)) > 0 && sb.length() < 65536) sb.append(buf, 0, n);
+                return sb.toString();
+            }
+        } catch (Throwable t) {
+            return null;
+        } finally {
+            if (conn != null) try { conn.disconnect(); } catch (Throwable ignored) {}
+        }
+    }
+
+    /** A dropdown row was tapped: navigate without touching history rules. */
+    private void onSuggestionPicked(SuggestEngine.Suggestion s) {
+        Tab t = tabs.currentTab();
+        hideSuggestPanel();
+        hideKeyboard();
+        omnibox.clearFocus();
+        if (t == null || s == null) return;
+        if (s.type == SuggestEngine.TYPE_CURRENT) {
+            updateChrome(t); // keep the page, just close editing
+            return;
+        }
+        String dest = s.type == SuggestEngine.TYPE_SEARCH
+                ? Utils.smartUrl(s.payload, prefs)
+                : s.payload;
+        if (dest != null && !dest.isEmpty()) loadInTab(t, dest);
     }
 
     /** Scaled screenshot for the tab switcher card (kept small to bound memory). */
@@ -3118,5 +3367,22 @@ public class MainActivity extends AppCompatActivity implements MediaGrabberSheet
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (isFinishing()) {
+            // Exiting the app closes the private session: destroy every
+            // private WebView, then wipe + delete its ephemeral profile.
+            // If the process dies first, the startup orphan sweep removes
+            // the profile on the next launch.
+            java.util.List<Tab> doomed = new ArrayList<>();
+            for (Tab t : tabs.tabs()) if (t.incognito) doomed.add(t);
+            for (Tab t : doomed) {
+                webContainer.removeView(t.webView);
+                tabs.remove(t);
+                t.destroy();
+            }
+            if (!doomed.isEmpty()) {
+                prefs.pendingIncognitoProfiles(
+                        IncognitoProfiles.release(prefs.pendingIncognitoProfiles()));
+            }
+        }
     }
 }

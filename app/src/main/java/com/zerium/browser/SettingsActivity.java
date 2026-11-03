@@ -49,6 +49,13 @@ public class SettingsActivity extends AppCompatActivity {
         customValue.setText(String.valueOf(Utils.parseCustomEngines(prefs.customEngines()).size()));
         findViewById(R.id.rowManageEngines).setOnClickListener(v -> manageCustomEngines());
 
+        // Search suggestions (remote omnibox autocomplete; disclosure string)
+        bindSwitch(R.id.swSearchSuggest, prefs.searchSuggestions(), (View.OnClickListener) v -> {
+            boolean val = !prefs.searchSuggestions();
+            prefs.searchSuggestions(val);
+            ((com.google.android.material.materialswitch.MaterialSwitch) v).setChecked(val);
+        });
+
         // Home shortcuts
         TextView shortcutsValue = findViewById(R.id.valueShortcuts);
         shortcutsValue.setText(prefs.homeTiles().isEmpty()

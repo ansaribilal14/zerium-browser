@@ -5,6 +5,10 @@
 - Anti-adblock: remote updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
 - Spaces follow-ups: per-space colored identities, space-aware start-page tiles; local data export/import.
 
+## Shipped in v1.15.0 (2026-11)
+
+- Address bar & private browsing rehaul: `about:blank`/internal pages can no longer pose as website URLs (empty omnibox + start-page hint instead) and never enter history; the focused omnibox is never overwritten by page updates. Native omnibox suggestions (current page, local history title+URL, direct-URL and search rows; opt-in remote suggestions per engine incl. Google with 250 ms debounce, stale-request cancellation, 8-row cap, offline fallback, disclosure setting; none of it in private tabs). Genuine private sessions: one ephemeral `incognito_*` engine profile per private session (dedicated cookie jar + storage, wipe + profile deletion when the last private tab closes, startup orphan sweep, hard refusal without MULTI_PROFILE). Chrome-style Normal/Private two-mode tab switcher with live counts, mode-aware New Tab / Close All, Space chips hidden in the private pane; also fixed the dead New-tab FAB from v1.14.0.
+
 ## Shipped in v1.14.0 (2026-11)
 
 - Chrome-style tab-group UI redesign: the overview now renders one compact group card per group (colour strip, name/count chip, member preview tiles) instead of flat header rows, and every tap opens a dedicated group-detail grid (colour-coded header with overflow, member grid, "New tab in group" that joins the group and the current Space). Group overflow actions are rename, eight-colour swatch palette, ungroup all and delete group; a bare long-press on a tab card opens an add-to-group / remove-from-group / move-to-Space context menu; grouping and ungrouping are drag-and-drop (drop on tab/group card, drag out to empty space). Still pure metadata on `Tab.groupId` — no WebView is ever recreated, Spaces untouched. Spec updated: `docs/issues/tab-groups-inside-spaces.md`.

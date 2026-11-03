@@ -165,4 +165,18 @@ public class Prefs {
     public void antiAdblockFixSites(String v) {
         sp.edit().putString("anti_adblock_fix_sites", v == null ? "" : v).apply();
     }
+    // Omnibox suggestions
+    /**
+     * Remote search suggestions from the selected engine while typing in the
+     * omnibox. Off by default: enabling it sends the typed text to the
+     * search provider (explained in Settings). Local history suggestions
+     * are unaffected by this switch.
+     */
+    public boolean searchSuggestions() { return sp.getBoolean("search_suggestions", false); }
+    public void searchSuggestions(boolean v) { sp.edit().putBoolean("search_suggestions", v).apply(); }
+    /** Engine profile names (incognito_*) whose deletion the engine refused last session. */
+    public String pendingIncognitoProfiles() { return sp.getString("incognito_profiles_pending", ""); }
+    public void pendingIncognitoProfiles(String v) {
+        sp.edit().putString("incognito_profiles_pending", v == null ? "" : v).apply();
+    }
 }

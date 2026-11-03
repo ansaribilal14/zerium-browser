@@ -197,6 +197,13 @@
     <!-- v1.6.0: tab switcher -->
     <string name="close_incognito_tabs">Close incognito</string>
     <string name="no_incognito_tabs">No incognito tabs open</string>
+    <!-- Chrome-style two-mode tab switcher (Normal / Private) -->
+    <string name="switcher_mode_normal">Normal (%d)</string>
+    <string name="switcher_mode_private">Private (%d)</string>
+    <string name="incognito_unavailable">Private browsing needs a newer Android System WebView (multi-profile support). No private tab was opened.</string>
+    <!-- Native omnibox suggestions -->
+    <string name="settings_search_suggestions">Search suggestions</string>
+    <string name="settings_search_suggestions_desc">Show search suggestions from your search engine while typing in the address bar. What you type is sent to the provider. Local history suggestions always stay on this device.</string>
     <string name="incognito_tabs_closed">%1$d incognito tab(s) closed</string>
 
     <!-- v1.6.0: gestures -->

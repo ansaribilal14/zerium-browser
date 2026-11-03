@@ -12,6 +12,24 @@ Stable builds are published as immutable releases on version tags (see [Releases
 - Spaces follow-ups: per-space colored identities, space-aware start-page tiles.
 - Anti-adblock follow-ups: remote rule updates for the detector-script list, a per-site "bypass active" indicator in the Protection sheet, Zerium G port of the same engine.
 
+## [1.15.0] — 2026-11-03
+
+Address-bar correctness, native omnibox suggestions, genuine private sessions and a Chrome-style Normal/Private tab switcher.
+
+### Fixed
+- **`about:blank` never poses as a website URL.** Internal pages (`about:*`, `data:*`, `javascript:*`) now show an empty address field with the start-page hint; only real HTTP/HTTPS URLs (host, path, query intact) reach the omnibox. The same classification keeps internal and blank/error pages out of browsing history (previously `about:blank` slipped past the `data:`-only filter).
+- **The omnibox never overwrites what you are typing.** Page updates — redirects, back/forward, title changes — no longer clobber focused user text (Chrome behaviour); tab switches close omnibox editing first.
+- The tab-switcher **New Tab button works again** (its click handler was lost in the v1.14.0 redesign).
+
+### Added
+- **Genuine private sessions.** Previously an incognito WebView had no profile attached and silently shared the default cookie jar — private tabs were not private. Each incognito session now gets one ephemeral engine profile (`incognito_<token>`, WebView multi-profile): all private tabs of the session share it; nothing is shared with normal tabs, Spaces or other sessions. When the last private tab closes, cookies and site storage are wiped and the profile is deleted (WebViews destroyed first; a refused deletion is retried at the next startup, before any profile resolves or WebView exists — same contract as Space profiles). If the WebView provider lacks MULTI_PROFILE support, private tabs are refused with an explanation instead of running on the default profile.
+- **Native omnibox suggestions.** Focusing the address field shows the current page (title + URL); typing shows local history suggestions (page title + URL, parameterized and deduplicated SQLite queries), a direct-URL row and a search row for the selected engine. **Remote search suggestions** (DuckDuckGo, Startpage, Brave, Google, Bing, Wikipedia endpoints; custom engines fall back to local) are opt-in via the new **Search Suggestions** setting, whose description states that typed text is sent to the provider. Requests are debounced ~250 ms, stale responses cancelled by a generation counter, results capped at 8, and offline/stale failures silently keep the local rows. Nothing of this runs in a private tab.
+- **Chrome-style Normal / Private tab switcher.** The switcher header is now a two-mode selector with live counts. Normal mode shows only the active Space's regular tabs and existing tab groups (Space chip bar unchanged); Private mode shows only private tabs, hides the Space chips and never shows groups. The New Tab button creates a tab in the selected mode, Close All respects it, and opening the switcher lands in the mode of the active tab. Switching modes never touches any session — every WebView stays alive.
+
+### Changed
+- The standalone "New incognito" and "Close incognito" switcher buttons are replaced by the mode selector (Close All in Private mode closes all private tabs).
+- Grouping rules are unchanged: private tabs can never be grouped or moved into Spaces (`GroupRowPlanner.planPrivate` renders them in their own pane only).
+
 ## [1.14.0] — 2026-11-02
 
 Complete Chrome-style redesign of the tab-group UI (grouped-card overview + dedicated group-detail grid).
