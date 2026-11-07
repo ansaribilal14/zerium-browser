@@ -144,3 +144,11 @@ Contributions are welcome — please start with [CONTRIBUTING.md](CONTRIBUTING.m
 - Android, androidx, Material Components: Apache 2.0 / their respective licenses.
 
 Credits and the detailed license matrix: [`docs/RESEARCH_SUMMARY.md`](docs/RESEARCH_SUMMARY.md).
+
+---
+
+## Project status
+
+**Completed project** — verified in the portfolio audit of **7 November 2026** (README, codebase and project state reviewed).
+
+_Last verified: 7 November 2026_
